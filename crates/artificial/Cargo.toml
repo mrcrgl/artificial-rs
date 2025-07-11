@@ -2,23 +2,23 @@
 name = "artificial"
 version = "0.1.0"
 edition = "2024"
-description = ""
+description = "Typed, provider-agnostic prompt-engineering SDK for Rust"
 authors = ["Marc Riegel <mail@mrcrgl.de>"]
 license = "MIT"
 readme = "README.md"
 repository = "https://github.com/mrcrgl/artificial-rs"
-categories = []
-keywords = ["openai", "client", "prompt", "typed", "schemars", "jsonschema"]
+categories = ["api-bindings", "development-tools", "text-processing"]
+keywords = ["ai", "openai", "prompt-engineering", "json-schema", "typed"]
 
 [features]
 default = ["openai"]
 openai = ["dep:artificial-openai"]
 
 [dependencies]
-artificial-types = { path = "../artificial-types" }
-artificial-openai = { path = "../artificial-openai", optional = true }
-artificial-core = { path = "../artificial-core" }
-artificial-prompt = { path = "../artificial-prompt" }
+artificial-types = { path = "../artificial-types" , version = "0.1.0"}
+artificial-openai = { path = "../artificial-openai", optional = true , version = "0.1.0"}
+artificial-core = { path = "../artificial-core" , version = "0.1.0"}
+artificial-prompt = { path = "../artificial-prompt" , version = "0.1.0"}
 
 [dev-dependencies]
 tokio = { version = "1", features = ["full"] }

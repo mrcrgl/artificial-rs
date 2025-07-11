@@ -2,6 +2,11 @@
 name = "artificial-openai"
 version = "0.1.0"
 edition = "2024"
+description = "OpenAI backend adapter for the Artificial prompt-engineering SDK"
+license = "MIT"
+repository = "https://github.com/mrcrgl/artificial-rs"
+categories = ["api-bindings", "development-tools", "text-processing"]
+keywords = ["ai", "openai", "json-schema", "prompt-engineering"]
 
 [dependencies]
 serde.workspace = true
@@ -12,4 +17,4 @@ reqwest = { version = "0.11", default-features = false, features = [
     "json",
     "rustls-tls",
 ] }
-artificial-core = { path = "../artificial-core" }
+artificial-core = { path = "../artificial-core" , version = "0.1.0"}

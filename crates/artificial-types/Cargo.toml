@@ -2,10 +2,15 @@
 name = "artificial-types"
 version = "0.1.0"
 edition = "2024"
+description = "Reusable prompt fragments and helper types for the Artificial prompt-engineering SDK"
+license = "MIT"
+repository = "https://github.com/mrcrgl/artificial-rs"
+categories = ["development-tools", "text-processing"]
+keywords = ["ai", "prompt-fragments", "json-schema", "sdk"]
 
 [dependencies]
-artificial-core = { path = "../artificial-core" }
-artificial-prompt = { path = "../artificial-prompt" }
+artificial-core = { path = "../artificial-core" , version = "0.1.0"}
+artificial-prompt = { path = "../artificial-prompt" , version = "0.1.0"}
 chrono = "0.4.41"
 
 schemars.workspace = true
