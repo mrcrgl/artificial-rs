@@ -4,7 +4,6 @@
 //! variants before bubbling them up to the [`ArtificialClient`].  This keeps
 //! the public API small while still conveying rich diagnostic information.
 
-
 use thiserror::Error;
 
 /// Convenient alias used throughout the workspace.

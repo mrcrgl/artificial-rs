@@ -29,8 +29,7 @@ use std::borrow::Cow;
 /// Universal identifier for an LLM model.
 ///
 /// * `OpenAi` – Enumerated list of officially supported OpenAI models.
-/// * `Custom` – Any provider / model name not yet covered by a dedicated enum.
-///              Use this if you run a self-hosted or beta model.
+/// * `Custom` – Any provider / model name not yet covered by a dedicated enum. Use this if you run a self-hosted or beta model.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum Model {
     /// Built-in OpenAI models (chat completion API).
