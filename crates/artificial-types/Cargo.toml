@@ -1,0 +1,13 @@
+[package]
+name = "artificial-types"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+artificial-core = { path = "../artificial-core" }
+artificial-prompt = { path = "../artificial-prompt" }
+chrono = "0.4.41"
+
+schemars.workspace = true
+serde.workspace = true
+serde_json.workspace = true

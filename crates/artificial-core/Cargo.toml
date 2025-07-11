@@ -1,0 +1,11 @@
+[package]
+name = "artificial-core"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+serde_json.workspace = true
+thiserror = "2.0.12"
+
+serde.workspace = true
+schemars.workspace = true

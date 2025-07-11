@@ -1,0 +1,7 @@
+[package]
+name = "artificial-prompt"
+version = "0.1.0"
+edition = "2024"
+
+[dependencies]
+artificial-core = { path = "../artificial-core" }

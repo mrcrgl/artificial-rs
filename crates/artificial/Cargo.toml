@@ -1,0 +1,29 @@
+[package]
+name = "artificial"
+version = "0.1.0"
+edition = "2024"
+description = ""
+authors = ["Marc Riegel <mail@mrcrgl.de>"]
+license = "MIT"
+readme = "README.md"
+repository = "https://github.com/mrcrgl/artificial-rs"
+categories = []
+keywords = ["openai", "client", "prompt", "typed", "schemars", "jsonschema"]
+
+[features]
+default = ["openai"]
+openai = ["dep:artificial-openai"]
+
+[dependencies]
+artificial-types = { path = "../artificial-types" }
+artificial-openai = { path = "../artificial-openai", optional = true }
+artificial-core = { path = "../artificial-core" }
+artificial-prompt = { path = "../artificial-prompt" }
+
+[dev-dependencies]
+tokio = { version = "1", features = ["full"] }
+anyhow = "1"
+serde.workspace = true
+schemars.workspace = true
+serde_yaml = "0.9.34"
+serde_json.workspace = true

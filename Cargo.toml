@@ -1,0 +1,22 @@
+
+[workspace]
+members = [
+    "crates/artificial",
+    "crates/artificial-core",
+    "crates/artificial-openai",
+    "crates/artificial-prompt",
+    "crates/artificial-types",
+]
+resolver = "3"
+
+
+[workspace.dependencies]
+schemars = { version = "0.8.22", features = [
+    "chrono",
+    "url",
+    "uuid",
+    "derive_json_schema",
+    "raw_value",
+] }
+serde = { version = "1.0.219", features = ["derive"] }
+serde_json = "1.0"
