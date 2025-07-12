@@ -28,18 +28,16 @@
 //! ```
 //!
 //! Any backend crate (e.g. `artificial-openai`, `artificial-ollama`) just
-//! implements [`Backend`] and the same client works out of the box.
-
+//! implements Provider traits and the same client works out of the box.
 use std::sync::Arc;
 
 use crate::{
-    provider::ChatCompletionProvider,
     error::Result,
-    generic::GenericMessage,
+    provider::ChatCompletionProvider,
     template::{IntoPrompt, PromptTemplate},
 };
 
-/// A client bound to a single provider backend `B`.
+/// A client bound to a single provider.
 ///
 /// Clone the client if you need to share it across tasks—`B` controls whether
 /// that’s cheap (e.g. wraps an `Arc`) or a deep copy.
@@ -58,20 +56,6 @@ where
             backend: Arc::new(backend),
         }
     }
-
-    /// Run a prompt on the backend and return the deserialised output.
-    ///
-    /// # Errors
-    ///
-    /// Any provider-specific failure is converted into
-    /// [`crate::error::ArtificialError`] and bubbled up transparently.
-    // pub async fn chat_complete<P>(&self, prompt: P) -> Result<P::Output>
-    // where
-    //     P: PromptTemplate + Send + Sync,
-    //     <P as IntoPrompt>::Message: Into<B::Message>,
-    // {
-    //     self.backend.chat_complete(prompt).await
-    // }
 
     /// Access the underlying backend (e.g. to tweak provider-specific settings).
     pub fn backend(&self) -> &B {
