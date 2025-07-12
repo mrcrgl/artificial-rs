@@ -1,8 +1,8 @@
 use artificial::{
     ArtificialClient,
-    provider::ChatCompletionProvider as _,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
+    provider::ChatCompletionProvider as _,
     template::{IntoPrompt, PromptTemplate},
 };
 use artificial_openai::OpenAiAdapterBuilder;
