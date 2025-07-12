@@ -48,6 +48,7 @@
 
 use artificial::{
     ArtificialClient,
+    provider::ChatCompletionProvider as _,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
     template::PromptTemplate,

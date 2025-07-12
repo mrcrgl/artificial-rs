@@ -7,7 +7,7 @@ The code base is intentionally small—less than 3 k lines spread over multiple
 crates—yet it already shows how to:
 
 * Compose reusable prompt *fragments* into high-level templates.
-* Target multiple model providers via pluggable back-ends  
+* Target multiple model providers via pluggable back-ends
   (currently OpenAI, adding others is trivial).
 * Describe the LLM’s **JSON response format in Rust** and have it checked
   at compile time with [`schemars`](https://docs.rs/schemars).
@@ -21,12 +21,12 @@ need a lean starting point for your own experiments—this repo is for you.
 
 ## Table of contents
 
-1. [Crate layout](#crate-layout)  
-2. [Installation](#installation)  
-3. [Quick start](#quick-start)  
-4. [Library tour](#library-tour)  
-5. [Design goals](#design-goals)  
-6. [FAQ](#faq)  
+1. [Crate layout](#crate-layout)
+2. [Installation](#installation)
+3. [Quick start](#quick-start)
+4. [Library tour](#library-tour)
+5. [Design goals](#design-goals)
+6. [FAQ](#faq)
 7. [License](#license)
 
 ---
@@ -35,7 +35,7 @@ need a lean starting point for your own experiments—this repo is for you.
 
 | Crate                        | Purpose                                                            |
 |------------------------------|--------------------------------------------------------------------|
-| **`artificial-core`**        | Provider-agnostic traits (`Backend`, `PromptTemplate`), client, error types |
+| **`artificial-core`**        | Provider-agnostic traits (`ChatCompletionProvider`, `PromptTemplate`), client, error types |
 | **`artificial-prompt`**      | String-building helpers (`PromptBuilder`, `PromptChain`)           |
 | **`artificial-types`**       | Shared fragments (`CurrentDateFragment`, `StaticFragment`) and output helpers |
 | **`artificial-openai`**      | Thin wrapper around *OpenAI /v1* with JSON-Schema function calling |
@@ -46,7 +46,7 @@ people will depend on the umbrella crate:
 
 ```toml
 [dependencies]
-artificial = { path = "crates/artificial", features = ["openai"] }
+artificial = { version = "*", features = ["openai"] }
 ```
 
 ---
@@ -130,7 +130,7 @@ deserialised reply.
 
 ## Library tour
 
-### Prompt fragments  
+### Prompt fragments
 `artificial-types::fragments` contains small building blocks that turn into
 `GenericMessage`s—think “Current date”, “Static system instruction”, “Last user
 message”. You can combine them via `PromptChain`:
@@ -143,16 +143,16 @@ PromptChain::new()
     .build();
 ```
 
-### Strongly-typed outputs  
+### Strongly-typed outputs
 Define a `struct` (must implement `JsonSchema` + `Deserialize`) and declare it
 as `PromptTemplate::Output`. The OpenAI back-end automatically injects the
 schema as `response_format = json_schema`.
 
-### Provider back-ends  
+### Provider back-ends
 A back-end only has to implement the single-method trait
 
 ```rust
-trait Backend {
+trait ChatCompletionProvider {
     type Message;
     fn chat_complete<P>(&self, prompt: P) -> Pin<Box<dyn Future<Output = Result<P::Output>> + Send>>
 }
@@ -177,24 +177,24 @@ to the provider’s naming scheme (`gpt-4o-mini`, `gpt-4o`, …).
 
 ## FAQ
 
-**Why another AI SDK?**  
+**Why another AI SDK?**
 Because many existing SDKs are either *too* heavyweight or hide the inner
 workings behind procedural macros. Artificial aims to be the smallest possible
 blueprint you can still use in production.
 
-**Does it support streaming completions?**  
-Not yet. The `Backend` trait is purposely tiny; adding another method for
+**Does it support streaming completions?**
+Not yet. The `ChatCompletionProvider` trait is purposely tiny; adding another method for
 streaming is straightforward.
 
-**Is the OpenAI back-end production ready?**  
+**Is the OpenAI back-end production ready?**
 It handles basic JSON-Schema function calling, retries and streaming are
 missing. Treat it as a reference implementation.
 
-**How do I add Anthropic or Ollama?**  
+**How do I add Anthropic or Ollama?**
 
-1. Create `artificial-anthropic` (or similar) crate.  
-2. Wrap the provider’s HTTP API in a small client struct.  
-3. Implement `Backend` for the adapter.  
+1. Create `artificial-anthropic` (or similar) crate.
+2. Wrap the provider’s HTTP API in a small client struct.
+3. Implement `ChatCompletionProvider` for the adapter.
 4. Done—`ArtificialClient` works instantly with the new provider.
 
 ---

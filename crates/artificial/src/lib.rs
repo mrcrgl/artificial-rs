@@ -37,6 +37,7 @@
 //!     generic::{GenericMessage, GenericRole},
 //!     model::{Model, OpenAiModel},
 //!     template::{IntoPrompt, PromptTemplate},
+//!     provider::ChatCompletionProvider,
 //! };
 //!
 //! // Define the answer shape

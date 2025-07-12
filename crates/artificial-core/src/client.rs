@@ -30,9 +30,12 @@
 //! Any backend crate (e.g. `artificial-openai`, `artificial-ollama`) just
 //! implements [`Backend`] and the same client works out of the box.
 
+use std::sync::Arc;
+
 use crate::{
-    backend::Backend,
+    provider::ChatCompletionProvider,
     error::Result,
+    generic::GenericMessage,
     template::{IntoPrompt, PromptTemplate},
 };
 
@@ -42,16 +45,18 @@ use crate::{
 /// that’s cheap (e.g. wraps an `Arc`) or a deep copy.
 #[derive(Debug, Clone)]
 pub struct ArtificialClient<B> {
-    backend: B,
+    backend: Arc<B>,
 }
 
 impl<B> ArtificialClient<B>
 where
-    B: Backend,
+    B: ChatCompletionProvider,
 {
     /// Create a new client that delegates all calls to `backend`.
     pub fn new(backend: B) -> Self {
-        Self { backend }
+        Self {
+            backend: Arc::new(backend),
+        }
     }
 
     /// Run a prompt on the backend and return the deserialised output.
@@ -60,21 +65,34 @@ where
     ///
     /// Any provider-specific failure is converted into
     /// [`crate::error::ArtificialError`] and bubbled up transparently.
-    pub async fn chat_complete<P>(&self, prompt: P) -> Result<P::Output>
-    where
-        P: PromptTemplate + Send + 'static,
-        <P as IntoPrompt>::Message: Into<B::Message>,
-    {
-        self.backend.chat_complete(prompt).await
-    }
+    // pub async fn chat_complete<P>(&self, prompt: P) -> Result<P::Output>
+    // where
+    //     P: PromptTemplate + Send + Sync,
+    //     <P as IntoPrompt>::Message: Into<B::Message>,
+    // {
+    //     self.backend.chat_complete(prompt).await
+    // }
 
     /// Access the underlying backend (e.g. to tweak provider-specific settings).
     pub fn backend(&self) -> &B {
         &self.backend
     }
+}
 
-    /// Consume the client and return the inner backend.
-    pub fn into_backend(self) -> B {
-        self.backend
+impl<B: ChatCompletionProvider> ChatCompletionProvider for ArtificialClient<B> {
+    type Message = B::Message;
+
+    fn chat_complete<'p, P>(
+        &'p self,
+        prompt: P,
+    ) -> std::pin::Pin<
+        Box<dyn std::prelude::rust_2024::Future<Output = Result<P::Output>> + Send + 'p>,
+    >
+    where
+        P: PromptTemplate + Send + Sync + 'p,
+        <P as IntoPrompt>::Message: Into<Self::Message>,
+    {
+        let backend = Arc::clone(&self.backend);
+        Box::pin(async move { backend.chat_complete(prompt).await })
     }
 }
