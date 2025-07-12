@@ -77,7 +77,7 @@ pub trait PromptTemplate: IntoPrompt {
 /// dynamic dispatch.
 pub trait IntoPrompt {
     /// Chat message representation emitted by the prompt.
-    type Message: Send + Sync + 'static;
+    type Message: Send + Sync;
 
     /// Consume `self` and return **all** messages in the desired order.
     fn into_prompt(self) -> Vec<Self::Message>;

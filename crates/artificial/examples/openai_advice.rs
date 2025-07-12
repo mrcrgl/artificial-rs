@@ -50,6 +50,7 @@ use artificial::{
     ArtificialClient,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
+    provider::ChatCompletionProvider as _,
     template::PromptTemplate,
 };
 use artificial_openai::OpenAiAdapterBuilder;

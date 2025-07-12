@@ -18,7 +18,7 @@ use crate::{
 ///
 /// The method returns a [`Pin<Box<dyn Future>>`] so we stay object-safe
 /// without pulling in `async_trait`.
-pub trait Backend: Send + Sync {
+pub trait ChatCompletionProvider: Send + Sync {
     /// Chat message type consumed by this backend.
     ///
     /// A simple setup can re-use `crate::generic::GenericMessage`.
@@ -32,11 +32,11 @@ pub trait Backend: Send + Sync {
     /// The blanket constraint `P: PromptTemplate<Message = Self::Message>`
     /// guarantees at **compile time** that callers only feed the backend
     /// messages it understands.
-    fn chat_complete<P>(
-        &self,
+    fn chat_complete<'p, P>(
+        &'p self,
         prompt: P,
-    ) -> Pin<Box<dyn Future<Output = Result<P::Output>> + Send>>
+    ) -> Pin<Box<dyn Future<Output = Result<P::Output>> + Send + 'p>>
     where
-        P: PromptTemplate + Send + 'static,
+        P: PromptTemplate + Send + Sync + 'p,
         <P as IntoPrompt>::Message: Into<Self::Message>;
 }
