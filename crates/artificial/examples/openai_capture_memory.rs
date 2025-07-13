@@ -11,17 +11,18 @@
 //! The code is intentionally *stand-alone* so that you can run it from the crate
 //! without touching any other files.
 
+use artificial::openai::OpenAiAdapterBuilder;
+use artificial::prompt::{builder::PromptBuilder, chain::PromptChain};
+use artificial::types::{
+    fragments::{CurrentDateFragment, StaticFragment},
+    outputs::result::ThinkResult,
+};
 use artificial::{
     ArtificialClient,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
+    provider::ChatCompletionProvider as _,
     template::{IntoPrompt, PromptTemplate},
-};
-use artificial_openai::OpenAiAdapterBuilder;
-use artificial_prompt::{builder::PromptBuilder, chain::PromptChain};
-use artificial_types::{
-    fragments::{CurrentDateFragment, StaticFragment},
-    outputs::result::ThinkResult,
 };
 use schemars::{
     JsonSchema, SchemaGenerator,
@@ -62,15 +63,19 @@ struct CaptureMemory<'a> {
     system_base_fragment: StaticFragment<'a>,
     memory_architect_role_fragment: StaticFragment<'a>,
     agent_fragment: AgentProfileFragment<'a>,
-    team_fragment: TeamProfileFragment,
-    history_fragment: MessageHistoryFragment,
+    team_fragment: TeamProfileFragment<'a>,
+    history_fragment: MessageHistoryFragment<'a>,
 }
 
 impl<'a> CaptureMemory<'a> {
     /// Constructor with a slightly too many parameters – perfectly fine for an
     /// **example**.
     #[allow(clippy::too_many_arguments)]
-    pub fn new(member: MemberProfile, history: Vec<Message>, team_profile: TeamProfile) -> Self {
+    pub fn new(
+        member: &'a MemberProfile<'a>,
+        history: &'a [Message],
+        team_profile: &'a TeamProfile<'a>,
+    ) -> Self {
         Self {
             system_base_fragment: BASE_SYSTEM_ROLE.into(),
             memory_architect_role_fragment: MEMORY_ARCHITECT_ROLE.into(),
@@ -131,9 +136,11 @@ async fn main() -> anyhow::Result<()> {
         biography: "Walking carpet with a heart of gold. Fluent in Shyriiwook.",
     };
 
+    let members = vec![&member_r2d2, &member_luke, &member_chewie];
+
     let team_profile = TeamProfile {
         team_name: "Rebel Alliance",
-        members: vec![member_r2d2.clone(), member_luke, member_chewie],
+        members: &members,
     };
 
     // -- Dummy chat history (radio chatter on a mission) ----------------------------
@@ -176,7 +183,7 @@ async fn main() -> anyhow::Result<()> {
     let client = ArtificialClient::new(backend);
 
     // -- Execute the prompt ----------------------------------------------------------
-    let prompt = CaptureMemory::new(member_r2d2, history, team_profile);
+    let prompt = CaptureMemory::new(&member_r2d2, &history, &team_profile);
     let result = client.chat_complete(prompt).await?;
 
     println!("🤖 LLM remembered:\n{:#?}", result);
@@ -190,17 +197,17 @@ async fn main() -> anyhow::Result<()> {
 
 /// ---- TeamProfileFragment --------------------------------------------------
 
-pub struct TeamProfileFragment {
-    team_spec: TeamProfile,
+pub struct TeamProfileFragment<'a> {
+    team_spec: &'a TeamProfile<'a>,
 }
 
-impl TeamProfileFragment {
-    fn new(team_spec: TeamProfile) -> Self {
+impl<'a> TeamProfileFragment<'a> {
+    fn new(team_spec: &'a TeamProfile<'a>) -> Self {
         Self { team_spec }
     }
 }
 
-impl IntoPrompt for TeamProfileFragment {
+impl IntoPrompt for TeamProfileFragment<'_> {
     type Message = GenericMessage;
 
     fn into_prompt(self) -> Vec<Self::Message> {
@@ -219,12 +226,12 @@ impl IntoPrompt for TeamProfileFragment {
 /// ---- AgentProfileFragment -------------------------------------------------
 
 pub struct AgentProfileFragment<'a> {
-    member: MemberProfile,
+    member: &'a MemberProfile<'a>,
     team_name: &'a str,
 }
 
 impl<'a> AgentProfileFragment<'a> {
-    fn new(member: MemberProfile, team_name: &'a str) -> Self {
+    fn new(member: &'a MemberProfile<'a>, team_name: &'a str) -> Self {
         Self { member, team_name }
     }
 }
@@ -249,17 +256,17 @@ impl IntoPrompt for AgentProfileFragment<'_> {
 
 /// ---- MessageHistoryFragment ----------------------------------------------
 
-pub struct MessageHistoryFragment {
-    history: Vec<Message>,
+pub struct MessageHistoryFragment<'a> {
+    history: &'a [Message],
 }
 
-impl MessageHistoryFragment {
-    fn new(history: Vec<Message>) -> Self {
+impl<'a> MessageHistoryFragment<'a> {
+    fn new(history: &'a [Message]) -> Self {
         Self { history }
     }
 }
 
-impl IntoPrompt for MessageHistoryFragment {
+impl IntoPrompt for MessageHistoryFragment<'_> {
     type Message = GenericMessage;
 
     fn into_prompt(self) -> Vec<Self::Message> {
@@ -309,14 +316,14 @@ impl IntoPrompt for MessageFragment<'_> {
 /// ===========================================================================
 
 #[derive(Serialize)]
-struct TeamProfile {
-    team_name: &'static str,
-    members: Vec<MemberProfile>,
+struct TeamProfile<'a> {
+    team_name: &'a str,
+    members: &'a [&'a MemberProfile<'a>],
 }
 
 #[derive(Serialize, Clone, Copy)]
-struct MemberProfile {
-    pub name: &'static str,
+struct MemberProfile<'a> {
+    pub name: &'a str,
     pub biography: &'static str,
 }
 

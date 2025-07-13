@@ -1,8 +1,8 @@
 use std::{any::Any, future::Future, pin::Pin, sync::Arc};
 
 use artificial_core::{
-    backend::Backend,
     error::{ArtificialError, Result},
+    provider::ChatCompletionProvider,
     template::{IntoPrompt, PromptTemplate},
 };
 use schemars::{JsonSchema, SchemaGenerator, r#gen::SchemaSettings};
@@ -16,7 +16,7 @@ use crate::{
     model_map::map_model,
 };
 
-/// Implementation of [`Backend`] for the [`OpenAiAdapter`].
+/// Implementation of [`ChatCompletionProvider`] for the [`OpenAiAdapter`].
 ///
 /// The type is only a thin glue layer—almost all heavy lifting is done by the
 /// inner `OpenAiClient` (HTTP) and the adapter’s config (API key, base URL, …).
@@ -31,7 +31,7 @@ use crate::{
 /// The implementation purposefully rejects any *streaming* or *multi-choice*
 /// responses for now; this keeps the surface minimal and makes error handling
 /// easier to reason about.
-impl Backend for OpenAiAdapter {
+impl ChatCompletionProvider for OpenAiAdapter {
     /// Provider-specific chat message type.
     type Message = ChatCompletionMessage;
 
@@ -39,18 +39,19 @@ impl Backend for OpenAiAdapter {
     ///
     /// The method is object-safe by returning a boxed `Future` rather than using
     /// async/await syntax directly.
-    fn chat_complete<P>(&self, prompt: P) -> Pin<Box<dyn Future<Output = Result<P::Output>> + Send>>
+    fn chat_complete<'p, P>(
+        &'p self,
+        prompt: P,
+    ) -> Pin<Box<dyn Future<Output = Result<P::Output>> + Send>>
     where
-        P: PromptTemplate + Send + 'static,
-        // Compile-time check: The prompt must emit messages we can convert.
+        P: PromptTemplate + Send + Sync + 'p,
         <P as IntoPrompt>::Message: Into<Self::Message>,
     {
         let client = Arc::clone(&self.client);
+        let messages = prompt.into_prompt().into_iter().map(Into::into).collect();
 
         Box::pin(async move {
             let response_format = derive_response_format::<P::Output>()?;
-
-            let messages = prompt.into_prompt().into_iter().map(Into::into).collect();
 
             let model = map_model(P::MODEL).ok_or(ArtificialError::InvalidRequest(format!(
                 "backend does not support selected model: {:?}",
