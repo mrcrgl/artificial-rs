@@ -11,18 +11,18 @@
 //! The code is intentionally *stand-alone* so that you can run it from the crate
 //! without touching any other files.
 
+use artificial::openai::OpenAiAdapterBuilder;
+use artificial::prompt::{builder::PromptBuilder, chain::PromptChain};
+use artificial::types::{
+    fragments::{CurrentDateFragment, StaticFragment},
+    outputs::result::ThinkResult,
+};
 use artificial::{
     ArtificialClient,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
     provider::ChatCompletionProvider as _,
     template::{IntoPrompt, PromptTemplate},
-};
-use artificial_openai::OpenAiAdapterBuilder;
-use artificial_prompt::{builder::PromptBuilder, chain::PromptChain};
-use artificial_types::{
-    fragments::{CurrentDateFragment, StaticFragment},
-    outputs::result::ThinkResult,
 };
 use schemars::{
     JsonSchema, SchemaGenerator,

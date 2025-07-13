@@ -1,3 +1,6 @@
+use artificial::openai::OpenAiAdapterBuilder;
+use artificial::prompt::chain::PromptChain;
+use artificial::types::fragments::StaticFragment;
 use artificial::{
     ArtificialClient,
     generic::{GenericMessage, GenericRole},
@@ -5,9 +8,6 @@ use artificial::{
     provider::ChatCompletionProvider as _,
     template::{IntoPrompt, PromptTemplate},
 };
-use artificial_openai::OpenAiAdapterBuilder;
-use artificial_prompt::chain::PromptChain;
-use artificial_types::fragments::StaticFragment;
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 

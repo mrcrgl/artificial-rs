@@ -46,6 +46,9 @@
 //!
 //! ---------------------------------------------------------------------------
 
+use artificial::openai::OpenAiAdapterBuilder;
+use artificial::prompt::chain::PromptChain;
+use artificial::types::{fragments::StaticFragment, outputs::result::ThinkResult};
 use artificial::{
     ArtificialClient,
     generic::{GenericMessage, GenericRole},
@@ -53,9 +56,6 @@ use artificial::{
     provider::ChatCompletionProvider as _,
     template::PromptTemplate,
 };
-use artificial_openai::OpenAiAdapterBuilder;
-use artificial_prompt::chain::PromptChain;
-use artificial_types::{fragments::StaticFragment, outputs::result::ThinkResult};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
 
