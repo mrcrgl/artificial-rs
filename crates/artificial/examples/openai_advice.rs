@@ -53,7 +53,7 @@ use artificial::{
     ArtificialClient,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
-    provider::ChatCompletionProvider as _,
+    provider::PromptExecutionProvider as _,
     template::PromptTemplate,
 };
 use schemars::JsonSchema;
@@ -133,7 +133,7 @@ async fn main() -> anyhow::Result<()> {
     ];
 
     // 4. Execute the prompt
-    let advice = client.chat_complete(AdvicePrompt::new(&history)).await?;
+    let advice = client.prompt_execute(AdvicePrompt::new(&history)).await?;
 
     // 5. Print structured response
     println!("Status: {:?}", advice.status);

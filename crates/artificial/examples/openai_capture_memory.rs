@@ -21,7 +21,7 @@ use artificial::{
     ArtificialClient,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
-    provider::ChatCompletionProvider as _,
+    provider::PromptExecutionProvider as _,
     template::{IntoPrompt, PromptTemplate},
 };
 use schemars::{
@@ -184,7 +184,7 @@ async fn main() -> anyhow::Result<()> {
 
     // -- Execute the prompt ----------------------------------------------------------
     let prompt = CaptureMemory::new(&member_r2d2, &history, &team_profile);
-    let result = client.chat_complete(prompt).await?;
+    let result = client.prompt_execute(prompt).await?;
 
     println!("🤖 LLM remembered:\n{:#?}", result);
 

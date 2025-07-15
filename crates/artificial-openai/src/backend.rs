@@ -2,7 +2,7 @@ use std::{any::Any, future::Future, pin::Pin, sync::Arc};
 
 use artificial_core::{
     error::{ArtificialError, Result},
-    provider::ChatCompletionProvider,
+    provider::PromptExecutionProvider,
     template::{IntoPrompt, PromptTemplate},
 };
 use schemars::{JsonSchema, SchemaGenerator, r#gen::SchemaSettings};
@@ -31,7 +31,7 @@ use crate::{
 /// The implementation purposefully rejects any *streaming* or *multi-choice*
 /// responses for now; this keeps the surface minimal and makes error handling
 /// easier to reason about.
-impl ChatCompletionProvider for OpenAiAdapter {
+impl PromptExecutionProvider for OpenAiAdapter {
     /// Provider-specific chat message type.
     type Message = ChatCompletionMessage;
 
@@ -39,7 +39,7 @@ impl ChatCompletionProvider for OpenAiAdapter {
     ///
     /// The method is object-safe by returning a boxed `Future` rather than using
     /// async/await syntax directly.
-    fn chat_complete<'p, P>(
+    fn prompt_execute<'p, P>(
         &'p self,
         prompt: P,
     ) -> Pin<Box<dyn Future<Output = Result<P::Output>> + Send>>

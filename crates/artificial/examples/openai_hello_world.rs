@@ -5,7 +5,7 @@ use artificial::{
     ArtificialClient,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
-    provider::ChatCompletionProvider as _,
+    provider::PromptExecutionProvider as _,
     template::{IntoPrompt, PromptTemplate},
 };
 use schemars::JsonSchema;
@@ -88,7 +88,7 @@ async fn main() -> anyhow::Result<()> {
     let client = ArtificialClient::new(backend);
 
     // 3. Run our prompt and await the typed result.
-    let response = client.chat_complete(HelloPrompt).await?;
+    let response = client.prompt_execute(HelloPrompt).await?;
 
     // 4. Done – enjoy a well-typed greeting from the galaxy.
     println!("Response: {response:?}");

@@ -37,7 +37,7 @@
 //!     generic::{GenericMessage, GenericRole},
 //!     model::{Model, OpenAiModel},
 //!     template::{IntoPrompt, PromptTemplate},
-//!     provider::ChatCompletionProvider,
+//!     provider::PromptExecutionProvider,
 //! };
 //!
 //! // Define the answer shape
@@ -61,7 +61,7 @@
 //! async fn main() -> anyhow::Result<()> {
 //!     let backend = artificial::openai::OpenAiAdapterBuilder::new_from_env().build()?;
 //!     let client  = ArtificialClient::new(backend);
-//!     let answer  = client.chat_complete(AskHello).await?;
+//!     let answer  = client.prompt_execute(AskHello).await?;
 //!     println!("{}", answer.greeting);
 //!     Ok(())
 //! }
