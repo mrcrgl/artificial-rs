@@ -33,7 +33,7 @@ use std::sync::Arc;
 
 use crate::{
     error::Result,
-    provider::ChatCompletionProvider,
+    provider::PromptExecutionProvider,
     template::{IntoPrompt, PromptTemplate},
 };
 
@@ -48,7 +48,7 @@ pub struct ArtificialClient<B> {
 
 impl<B> ArtificialClient<B>
 where
-    B: ChatCompletionProvider,
+    B: PromptExecutionProvider,
 {
     /// Create a new client that delegates all calls to `backend`.
     pub fn new(backend: B) -> Self {
@@ -63,10 +63,10 @@ where
     }
 }
 
-impl<B: ChatCompletionProvider> ChatCompletionProvider for ArtificialClient<B> {
+impl<B: PromptExecutionProvider> PromptExecutionProvider for ArtificialClient<B> {
     type Message = B::Message;
 
-    fn chat_complete<'p, P>(
+    fn prompt_execute<'p, P>(
         &'p self,
         prompt: P,
     ) -> std::pin::Pin<
@@ -77,6 +77,6 @@ impl<B: ChatCompletionProvider> ChatCompletionProvider for ArtificialClient<B> {
         <P as IntoPrompt>::Message: Into<Self::Message>,
     {
         let backend = Arc::clone(&self.backend);
-        Box::pin(async move { backend.chat_complete(prompt).await })
+        Box::pin(async move { backend.prompt_execute(prompt).await })
     }
 }
