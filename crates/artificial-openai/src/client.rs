@@ -31,7 +31,6 @@ impl OpenAiClient {
     pub fn new(api_key: impl Into<String>) -> Self {
         let http = HttpClient::builder()
             .timeout(Duration::from_secs(30))
-            .http2_prior_knowledge()
             .build()
             .expect("building reqwest client");
 
