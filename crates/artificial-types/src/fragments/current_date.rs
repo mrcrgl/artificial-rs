@@ -79,6 +79,7 @@ impl IntoPrompt for CurrentDateFragment {
 
         vec![Self::Message {
             role: GenericRole::System,
+            name: None,
             message: builder.finalize(),
         }]
     }

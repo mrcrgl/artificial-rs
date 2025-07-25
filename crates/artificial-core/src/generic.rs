@@ -25,6 +25,7 @@ use std::fmt::Display;
 pub struct GenericMessage {
     pub message: String,
     pub role: GenericRole,
+    pub name: Option<String>,
 }
 
 impl GenericMessage {
@@ -38,7 +39,16 @@ impl GenericMessage {
     ///                               GenericRole::System);
     /// ```
     pub fn new(message: String, role: GenericRole) -> Self {
-        Self { message, role }
+        Self {
+            message,
+            role,
+            name: None,
+        }
+    }
+
+    pub fn with_name(mut self, name: impl ToString) -> Self {
+        self.name = Some(name.to_string());
+        self
     }
 }
 

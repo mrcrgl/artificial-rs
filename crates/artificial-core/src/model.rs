@@ -48,6 +48,9 @@ pub enum OpenAiModel {
     Gpt4o,
     /// GPT-4o mini (cheaper, currently in phased rollout).
     Gpt4oMini,
+    O3,
+    O3Mini,
+    O4Mini,
 }
 
 impl From<OpenAiModel> for Model {
