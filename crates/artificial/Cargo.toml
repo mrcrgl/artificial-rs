@@ -27,3 +27,4 @@ serde.workspace = true
 schemars.workspace = true
 serde_yaml = "0.9.34"
 serde_json.workspace = true
+futures-util = "0.3"

@@ -2,16 +2,16 @@ use std::{any::Any, future::Future, pin::Pin, sync::Arc};
 
 use artificial_core::{
     error::{ArtificialError, Result},
+    generic::{GenericChatCompletionResponse, GenericUsageReport},
     provider::PromptExecutionProvider,
     template::{IntoPrompt, PromptTemplate},
 };
 use schemars::{JsonSchema, SchemaGenerator, r#gen::SchemaSettings};
-use serde::Deserialize;
 use serde_json::json;
 
 use crate::{
     OpenAiAdapter,
-    api_v1::chat_completion::{ChatCompletionMessage, ChatCompletionRequest, FinishReason},
+    api_v1::{ChatCompletionMessage, ChatCompletionRequest, FinishReason},
     error::OpenAiError,
     model_map::map_model,
 };
@@ -39,21 +39,23 @@ impl PromptExecutionProvider for OpenAiAdapter {
     ///
     /// The method is object-safe by returning a boxed `Future` rather than using
     /// async/await syntax directly.
-    fn prompt_execute<'p, P>(
-        &'p self,
+    fn prompt_execute<'a, 'p, P>(
+        &'a self,
         prompt: P,
-    ) -> Pin<Box<dyn Future<Output = Result<P::Output>> + Send>>
+    ) -> Pin<Box<dyn Future<Output = Result<GenericChatCompletionResponse<P::Output>>> + Send + 'p>>
     where
+        'a: 'p,
         P: PromptTemplate + Send + Sync + 'p,
         <P as IntoPrompt>::Message: Into<Self::Message>,
     {
         let client = Arc::clone(&self.client);
+
         let messages = prompt.into_prompt().into_iter().map(Into::into).collect();
 
         Box::pin(async move {
             let response_format = derive_response_format::<P::Output>()?;
 
-            let model = map_model(P::MODEL).ok_or(ArtificialError::InvalidRequest(format!(
+            let model = map_model(&P::MODEL).ok_or(ArtificialError::InvalidRequest(format!(
                 "backend does not support selected model: {:?}",
                 P::MODEL
             )))?;
@@ -62,6 +64,12 @@ impl PromptExecutionProvider for OpenAiAdapter {
                 ChatCompletionRequest::new(model.into(), messages).response_format(response_format);
 
             let response = client.chat_completion(request).await?;
+
+            let usage_report = GenericUsageReport {
+                prompt_tokens: response.usage.prompt_tokens as i64,
+                completion_tokens: response.usage.completion_tokens as i64,
+                total_tokens: response.usage.total_tokens as i64,
+            };
 
             let Some(first_choice) = response.choices.first() else {
                 return Err(OpenAiError::Format("response has no choices".into()).into());
@@ -77,7 +85,12 @@ impl PromptExecutionProvider for OpenAiAdapter {
                             .ok_or(OpenAiError::Format(
                                 "invalid response: empty content".into(),
                             ))?;
-                    parse_response(content)
+                    let content = serde_json::from_str(content.as_str())?;
+                    let response = GenericChatCompletionResponse {
+                        content,
+                        usage: Some(usage_report),
+                    };
+                    Ok(response)
                 }
                 Some(other) => Err(OpenAiError::Format(format!(
                     "unhandled finish reason on API: {other:?}"
@@ -86,14 +99,6 @@ impl PromptExecutionProvider for OpenAiAdapter {
             }
         })
     }
-}
-
-/// Deserialize the provider payload into the caller’s expected type.
-fn parse_response<T>(content: &str) -> Result<T>
-where
-    T: for<'de> Deserialize<'de>,
-{
-    Ok(serde_json::from_str(content)?)
 }
 
 /// Produce the `response_format` object expected by OpenAI.

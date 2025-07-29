@@ -81,17 +81,20 @@ impl PromptTemplate for HelloPrompt {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // 1. Build the backend from the environment (needs OPENAI_API_KEY).
     let backend = OpenAiAdapterBuilder::new_from_env().build()?;
 
-    // 2. Wrap it inside the generic client.
     let client = ArtificialClient::new(backend);
 
-    // 3. Run our prompt and await the typed result.
     let response = client.prompt_execute(HelloPrompt).await?;
 
-    // 4. Done – enjoy a well-typed greeting from the galaxy.
-    println!("Response: {response:?}");
+    println!("Response: {:?}", response.content);
+
+    if let Some(usage) = response.usage {
+        println!(
+            "Tokens – prompt: {}, completion: {}, total: {}",
+            usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
+        );
+    }
 
     Ok(())
 }

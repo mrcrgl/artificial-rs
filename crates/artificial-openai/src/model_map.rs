@@ -8,9 +8,9 @@ const O3: &str = "o3";
 const O3_MINI: &str = "03-mini";
 const O4_MINI: &str = "o4-mini";
 
-pub(crate) fn map_model(model: Model) -> Option<Cow<'static, str>> {
+pub(crate) fn map_model(model: &Model) -> Option<Cow<'static, str>> {
     if let Model::Custom(custom) = model {
-        return Some(custom);
+        return Some(custom.clone());
     }
 
     let Model::OpenAi(openai_model) = model else {

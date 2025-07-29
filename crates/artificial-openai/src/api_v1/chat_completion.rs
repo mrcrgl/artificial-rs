@@ -1,4 +1,4 @@
-use artificial_core::generic::{GenericMessage, GenericRole};
+use artificial_core::generic::{GenericChatResponseMessage, GenericMessage, GenericRole};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
@@ -7,8 +7,9 @@ use std::fmt;
 use crate::impl_builder_methods;
 
 use super::common;
+use super::tools::ToolCall;
 
-#[derive(Debug, Serialize, Deserialize, Clone)]
+#[derive(Debug, Serialize, Clone)]
 pub struct ChatCompletionRequest {
     pub model: String,
     pub messages: Vec<ChatCompletionMessage>,
@@ -20,6 +21,8 @@ pub struct ChatCompletionRequest {
     pub n: Option<i64>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_format: Option<serde_json::Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub stream: Option<bool>,
 }
 
 impl ChatCompletionRequest {
@@ -31,6 +34,7 @@ impl ChatCompletionRequest {
             top_p: None,
             n: None,
             response_format: None,
+            stream: None,
         }
     }
 }
@@ -40,7 +44,8 @@ impl_builder_methods!(
     temperature: f64,
     top_p: f64,
     n: i64,
-    response_format: serde_json::Value
+    response_format: serde_json::Value,
+    stream: bool
 );
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
@@ -127,16 +132,30 @@ pub struct ChatCompletionMessage {
     pub content: Content,
 }
 
-#[derive(Debug, Deserialize, Serialize, Clone)]
+#[derive(Debug, Deserialize, Clone)]
 pub struct ChatCompletionMessageForResponse {
     pub role: MessageRole,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub reasoning_content: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_calls: Option<Vec<ToolCall>>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+impl Into<GenericChatResponseMessage> for ChatCompletionMessageForResponse {
+    fn into(self) -> GenericChatResponseMessage {
+        GenericChatResponseMessage {
+            content: self.content,
+            role: self.role.into(),
+            tool_calls: self
+                .tool_calls
+                .map(|calls| calls.into_iter().map(Into::into).collect()),
+        }
+    }
+}
+
+#[derive(Debug, Deserialize)]
 pub struct ChatCompletionChoice {
     pub index: i64,
     pub message: ChatCompletionMessageForResponse,
@@ -144,7 +163,7 @@ pub struct ChatCompletionChoice {
     pub finish_details: Option<FinishDetails>,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 pub struct ChatCompletionResponse {
     pub id: Option<String>,
     pub object: String,
@@ -155,17 +174,16 @@ pub struct ChatCompletionResponse {
     pub system_fingerprint: Option<String>,
 }
 
-#[derive(Debug, Deserialize, Serialize, PartialEq, Eq)]
+#[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FinishReason {
     Stop,
     Length,
     ContentFilter,
     ToolCalls,
-    Null,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Debug, Deserialize)]
 #[allow(non_camel_case_types)]
 pub struct FinishDetails {
     pub r#type: FinishReason,
@@ -179,6 +197,18 @@ impl From<GenericRole> for MessageRole {
             GenericRole::Assistant => MessageRole::Assistant,
             GenericRole::User => MessageRole::User,
             GenericRole::Tool => MessageRole::Tool,
+        }
+    }
+}
+
+impl Into<GenericRole> for MessageRole {
+    fn into(self) -> GenericRole {
+        match self {
+            MessageRole::User => GenericRole::User,
+            MessageRole::System => GenericRole::System,
+            MessageRole::Assistant => GenericRole::Assistant,
+            MessageRole::Function => GenericRole::Tool,
+            MessageRole::Tool => GenericRole::Tool,
         }
     }
 }

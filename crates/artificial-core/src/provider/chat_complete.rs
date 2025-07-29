@@ -1,0 +1,76 @@
+use std::{future::Future, pin::Pin};
+
+use crate::{
+    error::Result,
+    generic::{GenericChatCompletionResponse, GenericChatResponseMessage},
+    model::Model,
+};
+use futures_core::stream::Stream;
+
+/// A **backend** turns a chat prompt into a network call to a concrete provider
+/// (OpenAI, Ollama, Anthropic, …) and parses the structured chat response.
+///
+/// The trait is intentionally minimal:
+///
+/// * **One associated type** – the in-memory `Message` representation this
+///   provider accepts.
+/// * **One async-ish method** – `chat_complete`, which performs a *single*
+///   non-streaming round-trip and returns a value whose type is dictated by
+///   the `PromptTemplate`.
+pub trait ChatCompletionProvider: Send + Sync {
+    /// Chat message type consumed by this backend.
+    type Message: Send + Sync + 'static;
+
+    /// Execute the chat prompt and deserialize the provider’s reply into
+    /// `P::Output`.
+    fn chat_complete<'p, M>(
+        &self,
+        params: ChatCompleteParameters<M>,
+    ) -> Pin<
+        Box<
+            dyn Future<Output = Result<GenericChatCompletionResponse<GenericChatResponseMessage>>>
+                + Send
+                + 'p,
+        >,
+    >
+    where
+        M: Into<Self::Message> + Send + Sync + 'p;
+}
+
+/// A provider that can deliver the model’s answer **incrementally**.
+///
+/// The stream yields UTF-8 text *deltas* (similar to OpenAI’s SSE format).
+/// Tool-call and richer payload support can be layered on later by
+/// introducing a dedicated enum – starting with plain text keeps the API
+/// minimal and backend-agnostic.
+pub trait StreamingChatProvider: ChatCompletionProvider {
+    /// The item type returned on the stream.  For now it is plain UTF-8 text
+    /// chunks, but back-ends are free to wrap it in richer enums if needed.
+    type Delta<'s>: Stream<Item = Result<String>> + Send + 's
+    where
+        Self: 's;
+
+    /// Start a streaming chat completion.
+    fn chat_complete_stream<'p, M>(&self, params: ChatCompleteParameters<M>) -> Self::Delta<'p>
+    where
+        M: Into<Self::Message> + Send + Sync + 'p;
+}
+
+pub struct ChatCompleteParameters<M> {
+    messages: Vec<M>,
+    model: Model,
+}
+
+impl<M> ChatCompleteParameters<M> {
+    pub fn new(messages: Vec<M>, model: Model) -> Self {
+        Self { messages, model }
+    }
+
+    pub fn into_messages(self) -> Vec<M> {
+        self.messages
+    }
+
+    pub fn model(&self) -> Model {
+        self.model.clone()
+    }
+}

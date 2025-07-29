@@ -119,30 +119,35 @@ impl PromptTemplate for AdvicePrompt {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // 1. Build backend (needs `OPENAI_API_KEY` in environment)
     let backend = OpenAiAdapterBuilder::new_from_env().build()?;
 
-    // 2. Wrap backend in a generic client
     let client = ArtificialClient::new(backend);
 
-    // 3. Provide some interesting chat history
     let history = [
         ("I failed my Rust borrow checker again.", GenericRole::User),
         ("Keep calm and add more lifetimes.", GenericRole::Assistant),
         ("Any other tips?", GenericRole::User),
     ];
 
-    // 4. Execute the prompt
-    let advice = client.prompt_execute(AdvicePrompt::new(&history)).await?;
+    let response = client.prompt_execute(AdvicePrompt::new(&history)).await?;
 
-    // 5. Print structured response
-    println!("Status: {:?}", advice.status);
-    println!("Reasoning: {}", advice.reasoning);
-    println!("Confidence: {}", advice.confidence);
+    println!("Status: {:?}", response.content.status);
+    println!("Reasoning: {}", response.content.reasoning);
+    println!("Confidence: {}", response.content.confidence);
     println!(
         "LLM says:\n {}",
-        advice.data.map(|d| d.suggestion).unwrap_or_default()
+        response
+            .content
+            .data
+            .map(|d| d.suggestion)
+            .unwrap_or_default()
     );
+    if let Some(usage) = response.usage {
+        println!(
+            "Tokens – prompt: {}, completion: {}, total: {}",
+            usage.prompt_tokens, usage.completion_tokens, usage.total_tokens
+        );
+    }
 
     Ok(())
 }

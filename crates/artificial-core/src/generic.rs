@@ -79,3 +79,40 @@ impl Display for GenericRole {
         }
     }
 }
+
+#[derive(Debug)]
+pub struct GenericChatCompletionResponse<T> {
+    pub content: T,
+    pub usage: Option<GenericUsageReport>,
+}
+
+pub struct GenericChatResponseMessage {
+    pub content: Option<String>,
+    pub role: GenericRole,
+    pub tool_calls: Option<Vec<GenericFunctionCallIntent>>,
+}
+
+#[derive(Debug)]
+pub struct GenericUsageReport {
+    pub prompt_tokens: i64,
+    pub completion_tokens: i64,
+    pub total_tokens: i64,
+}
+
+pub struct GenericFunctionCallIntent {
+    pub id: String,
+    pub function: GenericFunctionCall,
+}
+
+pub struct GenericFunctionCall {
+    pub name: String,
+    pub arguments: serde_json::Value,
+}
+
+pub enum GenericStramingChatChunk {
+    Created,
+    Completed,
+    Failed,
+    OutputTextDelta,
+    OutputTextDone,
+}

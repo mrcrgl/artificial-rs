@@ -29,11 +29,15 @@
 //!
 //! Any backend crate (e.g. `artificial-openai`, `artificial-ollama`) just
 //! implements Provider traits and the same client works out of the box.
-use std::sync::Arc;
+use std::{future::Future, pin::Pin, sync::Arc};
 
 use crate::{
     error::Result,
-    provider::PromptExecutionProvider,
+    generic::GenericChatCompletionResponse,
+    provider::{
+        ChatCompleteParameters, ChatCompletionProvider, PromptExecutionProvider,
+        StreamingChatProvider,
+    },
     template::{IntoPrompt, PromptTemplate},
 };
 
@@ -66,17 +70,53 @@ where
 impl<B: PromptExecutionProvider> PromptExecutionProvider for ArtificialClient<B> {
     type Message = B::Message;
 
-    fn prompt_execute<'p, P>(
-        &'p self,
+    fn prompt_execute<'a, 'p, P>(
+        &'a self,
         prompt: P,
-    ) -> std::pin::Pin<
-        Box<dyn std::prelude::rust_2024::Future<Output = Result<P::Output>> + Send + 'p>,
-    >
+    ) -> Pin<Box<dyn Future<Output = Result<GenericChatCompletionResponse<P::Output>>> + Send + 'p>>
     where
+        'a: 'p,
         P: PromptTemplate + Send + Sync + 'p,
         <P as IntoPrompt>::Message: Into<Self::Message>,
     {
         let backend = Arc::clone(&self.backend);
         Box::pin(async move { backend.prompt_execute(prompt).await })
+    }
+}
+
+impl<B: ChatCompletionProvider> ChatCompletionProvider for ArtificialClient<B> {
+    type Message = B::Message;
+
+    fn chat_complete<'p, M>(
+        &self,
+        params: ChatCompleteParameters<M>,
+    ) -> Pin<
+        Box<
+            dyn Future<
+                    Output = Result<
+                        GenericChatCompletionResponse<crate::generic::GenericChatResponseMessage>,
+                    >,
+                > + Send
+                + 'p,
+        >,
+    >
+    where
+        M: Into<Self::Message> + Send + Sync + 'p,
+    {
+        self.backend.chat_complete(params)
+    }
+}
+
+impl<B: StreamingChatProvider> StreamingChatProvider for ArtificialClient<B> {
+    type Delta<'s>
+        = B::Delta<'s>
+    where
+        Self: 's;
+
+    fn chat_complete_stream<'p, M>(&self, params: ChatCompleteParameters<M>) -> Self::Delta<'p>
+    where
+        M: Into<Self::Message> + Send + Sync + 'p,
+    {
+        self.backend.chat_complete_stream(params)
     }
 }

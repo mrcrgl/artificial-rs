@@ -1,3 +1,5 @@
+use std::str::Utf8Error;
+
 use artificial_core::error::ArtificialError;
 use reqwest::StatusCode;
 
@@ -15,10 +17,19 @@ pub enum OpenAiError {
 
     #[error("OpenAI format error: {0}")]
     Format(String),
+
+    #[error("unknown error: {0}")]
+    Unknown(String),
 }
 
 impl From<OpenAiError> for ArtificialError {
     fn from(value: OpenAiError) -> Self {
         ArtificialError::Backend(Box::new(value))
+    }
+}
+
+impl From<Utf8Error> for OpenAiError {
+    fn from(value: Utf8Error) -> Self {
+        Self::Unknown(format!("UTF8 error: {value}"))
     }
 }
