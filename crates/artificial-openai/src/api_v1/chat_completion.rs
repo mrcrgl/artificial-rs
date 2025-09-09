@@ -196,6 +196,7 @@ impl<'de> Deserialize<'de> for Content {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum ContentType {
