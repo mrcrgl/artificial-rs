@@ -77,10 +77,6 @@ impl IntoPrompt for CurrentDateFragment {
                  expressions like 'next week' or 'in 3 days'.",
             );
 
-        vec![Self::Message {
-            role: GenericRole::System,
-            name: None,
-            message: builder.finalize(),
-        }]
+        vec![GenericMessage::new(builder.finalize(), GenericRole::System)]
     }
 }

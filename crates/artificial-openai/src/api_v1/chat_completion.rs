@@ -1,10 +1,13 @@
-use artificial_core::generic::{GenericChatResponseMessage, GenericMessage, GenericRole};
+use artificial_core::error::ArtificialError;
+use artificial_core::generic::{GenericFunctionSpec, GenericMessage, GenericRole};
+use artificial_core::provider::ChatCompleteParameters;
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
 
 use std::fmt;
 
 use crate::impl_builder_methods;
+use crate::model_map::map_model;
 
 use super::common;
 use super::tools::ToolCall;
@@ -13,6 +16,8 @@ use super::tools::ToolCall;
 pub struct ChatCompletionRequest {
     pub model: String,
     pub messages: Vec<ChatCompletionMessage>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<ToolSpec>>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub temperature: Option<f64>,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -23,6 +28,8 @@ pub struct ChatCompletionRequest {
     pub response_format: Option<serde_json::Value>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub stream: Option<bool>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<ToolChoice>,
 }
 
 impl ChatCompletionRequest {
@@ -35,6 +42,8 @@ impl ChatCompletionRequest {
             n: None,
             response_format: None,
             stream: None,
+            tools: None,
+            tool_choice: None,
         }
     }
 }
@@ -45,8 +54,81 @@ impl_builder_methods!(
     top_p: f64,
     n: i64,
     response_format: serde_json::Value,
-    stream: bool
+    stream: bool,
+    tools: Vec<ToolSpec>,
+    tool_choice: ToolChoice
 );
+
+impl<M> TryFrom<ChatCompleteParameters<M>> for ChatCompletionRequest
+where
+    M: Into<ChatCompletionMessage>,
+{
+    type Error = ArtificialError;
+
+    fn try_from(value: ChatCompleteParameters<M>) -> Result<Self, Self::Error> {
+        Ok(Self {
+            model: map_model(&value.model)
+                .ok_or(ArtificialError::InvalidRequest(format!(
+                    "backend does not support selected model: {:?}",
+                    value.model
+                )))?
+                .into(),
+            messages: value.messages.into_iter().map(Into::into).collect(),
+            tools: value
+                .tools
+                .and_then(|tools| Some(tools.into_iter().map(Into::into).collect())),
+            temperature: value.temperature,
+            top_p: None,
+            n: None,
+            response_format: value.response_format,
+            stream: None,
+            tool_choice: None,
+        })
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub struct ToolSpec {
+    pub function: ToolFunctionSpec,
+    pub r#type: ToolType,
+}
+
+impl From<GenericFunctionSpec> for ToolSpec {
+    fn from(value: GenericFunctionSpec) -> Self {
+        ToolSpec {
+            function: ToolFunctionSpec {
+                name: value.name,
+                description: value.description,
+                parameters: value.parameters,
+                strict: Some(true),
+            },
+            r#type: ToolType::Function,
+        }
+    }
+}
+
+#[derive(Debug, Deserialize, Serialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub struct ToolFunctionSpec {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
+    pub strict: Option<bool>,
+}
+
+#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolType {
+    Function,
+}
+
+#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum ToolChoice {
+    None,
+    Auto,
+}
 
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
@@ -129,7 +211,10 @@ pub enum ContentType {
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ChatCompletionMessage {
     pub role: MessageRole,
-    pub content: Content,
+    pub content: Option<Content>,
+    pub name: Option<String>,
+    pub tool_calls: Option<Vec<ToolCall>>,
+    pub tool_call_id: Option<String>,
 }
 
 #[derive(Debug, Deserialize, Clone)]
@@ -141,16 +226,22 @@ pub struct ChatCompletionMessageForResponse {
     pub reasoning_content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub tool_calls: Option<Vec<ToolCall>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_call_id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
 }
 
-impl Into<GenericChatResponseMessage> for ChatCompletionMessageForResponse {
-    fn into(self) -> GenericChatResponseMessage {
-        GenericChatResponseMessage {
+impl Into<GenericMessage> for ChatCompletionMessageForResponse {
+    fn into(self) -> GenericMessage {
+        GenericMessage {
             content: self.content,
             role: self.role.into(),
             tool_calls: self
                 .tool_calls
                 .map(|calls| calls.into_iter().map(Into::into).collect()),
+            name: self.name,
+            tool_call_id: self.tool_call_id,
         }
     }
 }
@@ -217,7 +308,12 @@ impl From<GenericMessage> for ChatCompletionMessage {
     fn from(value: GenericMessage) -> Self {
         Self {
             role: value.role.into(),
-            content: Content::Text(value.message),
+            content: value.content.map(|v| Content::Text(v)),
+            name: value.name,
+            tool_calls: value
+                .tool_calls
+                .and_then(|v| Some(v.into_iter().map(Into::into).collect())),
+            tool_call_id: value.tool_call_id,
         }
     }
 }

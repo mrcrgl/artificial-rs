@@ -27,10 +27,8 @@ use std::io::{self, Write};
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    // 1. Spin up the OpenAI back-end (needs `OPENAI_API_KEY` in the env).
     let backend = OpenAiAdapterBuilder::new_from_env().build()?;
 
-    // 2. Create a tiny conversation.
     let messages = vec![
         GenericMessage::new(
             "You are a real-time narrator. Respond sentence by sentence.".into(),
@@ -42,13 +40,10 @@ async fn main() -> anyhow::Result<()> {
         ),
     ];
 
-    // 3. Bundle messages + model into `ChatCompleteParameters`.
     let params = ChatCompleteParameters::new(messages, Model::OpenAi(OpenAiModel::Gpt4oMini));
 
-    // 4. Kick off the streaming request.
     let mut stream = backend.chat_complete_stream(params);
 
-    // 5. Render the assistant’s output as it flows in.
     print!("Assistant: ");
     io::stdout().flush().ok();
 

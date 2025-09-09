@@ -1,16 +1,14 @@
 use std::sync::Arc;
 
 use artificial_core::{
-    error::ArtificialError,
-    generic::{GenericChatCompletionResponse, GenericUsageReport},
+    generic::{GenericChatCompletionResponse, GenericUsageReport, ResponseContent},
     provider::{ChatCompleteParameters, ChatCompletionProvider},
 };
 
 use crate::{
     OpenAiAdapter,
-    api_v1::{ChatCompletionMessage, ChatCompletionRequest, FinishReason},
+    api_v1::{ChatCompletionMessage, FinishReason},
     error::OpenAiError,
-    model_map::map_model,
 };
 
 impl ChatCompletionProvider for OpenAiAdapter {
@@ -24,7 +22,7 @@ impl ChatCompletionProvider for OpenAiAdapter {
             dyn Future<
                     Output = artificial_core::error::Result<
                         artificial_core::generic::GenericChatCompletionResponse<
-                            artificial_core::generic::GenericChatResponseMessage,
+                            artificial_core::generic::GenericMessage,
                         >,
                     >,
                 > + Send
@@ -37,14 +35,7 @@ impl ChatCompletionProvider for OpenAiAdapter {
         let client = Arc::clone(&self.client);
 
         Box::pin(async move {
-            let model = params.model();
-            let model = map_model(&model).ok_or(ArtificialError::InvalidRequest(format!(
-                "backend does not support selected model: {:?}",
-                model
-            )))?;
-            let messages = params.into_messages().into_iter().map(Into::into).collect();
-
-            let request = ChatCompletionRequest::new(model.into(), messages);
+            let request = params.try_into()?;
 
             let mut response = client.chat_completion(request).await?;
 
@@ -58,13 +49,19 @@ impl ChatCompletionProvider for OpenAiAdapter {
                 return Err(OpenAiError::Format("response has no choices".into()).into());
             };
 
+            println!("Response: {first_choice:?}");
+
             match &first_choice.finish_reason {
                 Some(FinishReason::ToolCalls) => {
-                    todo!()
+                    let response = GenericChatCompletionResponse {
+                        content: ResponseContent::ToolCalls(first_choice.message.into()),
+                        usage: Some(usage_report),
+                    };
+                    Ok(response)
                 }
                 None | Some(FinishReason::Stop) => {
                     let response = GenericChatCompletionResponse {
-                        content: first_choice.message.into(),
+                        content: ResponseContent::Finished(first_choice.message.into()),
                         usage: Some(usage_report),
                     };
                     Ok(response)

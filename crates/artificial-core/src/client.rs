@@ -93,9 +93,7 @@ impl<B: ChatCompletionProvider> ChatCompletionProvider for ArtificialClient<B> {
     ) -> Pin<
         Box<
             dyn Future<
-                    Output = Result<
-                        GenericChatCompletionResponse<crate::generic::GenericChatResponseMessage>,
-                    >,
+                    Output = Result<GenericChatCompletionResponse<crate::generic::GenericMessage>>,
                 > + Send
                 + 'p,
         >,

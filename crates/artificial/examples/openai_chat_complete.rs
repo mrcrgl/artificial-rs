@@ -1,3 +1,4 @@
+use artificial::generic::ResponseContent;
 use artificial::openai::OpenAiAdapterBuilder;
 use artificial::{
     ArtificialClient,
@@ -41,8 +42,10 @@ async fn main() -> anyhow::Result<()> {
     let params = ChatCompleteParameters::new(messages, Model::OpenAi(OpenAiModel::Gpt4oMini));
 
     let response = client.chat_complete(params).await?;
-
-    if let Some(answer) = response.content.content {
+    let ResponseContent::Finished(content) = response.content else {
+        panic!("expected finished");
+    };
+    if let Some(answer) = content.content {
         println!("Assistant: {answer}");
     } else {
         println!("Assistant returned no textual content 🤖");

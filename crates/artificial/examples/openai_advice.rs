@@ -46,6 +46,7 @@
 //!
 //! ---------------------------------------------------------------------------
 
+use artificial::generic::ResponseContent;
 use artificial::openai::OpenAiAdapterBuilder;
 use artificial::prompt::chain::PromptChain;
 use artificial::types::{fragments::StaticFragment, outputs::result::ThinkResult};
@@ -131,16 +132,16 @@ async fn main() -> anyhow::Result<()> {
 
     let response = client.prompt_execute(AdvicePrompt::new(&history)).await?;
 
-    println!("Status: {:?}", response.content.status);
-    println!("Reasoning: {}", response.content.reasoning);
-    println!("Confidence: {}", response.content.confidence);
+    let ResponseContent::Finished(content) = response.content else {
+        panic!("expected finished");
+    };
+
+    println!("Status: {:?}", content.status);
+    println!("Reasoning: {}", content.reasoning);
+    println!("Confidence: {}", content.confidence);
     println!(
         "LLM says:\n {}",
-        response
-            .content
-            .data
-            .map(|d| d.suggestion)
-            .unwrap_or_default()
+        content.data.map(|d| d.suggestion).unwrap_or_default()
     );
     if let Some(usage) = response.usage {
         println!(

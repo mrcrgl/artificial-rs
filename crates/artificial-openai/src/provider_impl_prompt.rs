@@ -2,7 +2,7 @@ use std::{any::Any, future::Future, pin::Pin, sync::Arc};
 
 use artificial_core::{
     error::{ArtificialError, Result},
-    generic::{GenericChatCompletionResponse, GenericUsageReport},
+    generic::{GenericChatCompletionResponse, GenericUsageReport, ResponseContent},
     provider::PromptExecutionProvider,
     template::{IntoPrompt, PromptTemplate},
 };
@@ -87,7 +87,7 @@ impl PromptExecutionProvider for OpenAiAdapter {
                             ))?;
                     let content = serde_json::from_str(content.as_str())?;
                     let response = GenericChatCompletionResponse {
-                        content,
+                        content: ResponseContent::Finished(content),
                         usage: Some(usage_report),
                     };
                     Ok(response)

@@ -2,7 +2,6 @@ use std::pin::Pin;
 
 use crate::OpenAiAdapter;
 use crate::api_v1::ChatCompletionRequest;
-use crate::model_map::map_model;
 use artificial_core::error::{ArtificialError, Result};
 use artificial_core::provider::{ChatCompleteParameters, StreamingChatProvider};
 use futures_core::stream::Stream;
@@ -17,16 +16,14 @@ impl StreamingChatProvider for OpenAiAdapter {
     where
         M: Into<Self::Message> + Send + Sync + 'p,
     {
-        let model = params.model();
         let client = self.client.clone();
-        let messages = params.into_messages().into_iter().map(Into::into).collect();
-
-        let model = map_model(&model).expect("checked at compile time");
-
-        let request = ChatCompletionRequest::new(model.into(), messages);
 
         Box::pin(async_stream::try_stream! {
-            use futures_util::StreamExt;
+        use futures_util::StreamExt;
+
+        let request: ChatCompletionRequest = params.try_into()?;
+
+
             let stream = client.chat_completion_stream(request);
             futures_util::pin_mut!(stream);
 

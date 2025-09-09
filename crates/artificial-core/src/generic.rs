@@ -15,17 +15,21 @@
 //! provider-specific message type instead of bloating this one.
 use std::fmt::Display;
 
+use serde::{Deserialize, Serialize};
+
 /// Lightweight container representing a single chat message that is
 /// independent of any specific LLM provider.
 ///
 /// * `message` – the raw UTF-8 content. Markdown is fine, but keep newlines
 ///   and indentation portable.
 /// * `role` – see [`GenericRole`] for permitted values.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenericMessage {
-    pub message: String,
+    pub content: Option<String>,
     pub role: GenericRole,
     pub name: Option<String>,
+    pub tool_calls: Option<Vec<GenericFunctionCallIntent>>,
+    pub tool_call_id: Option<String>,
 }
 
 impl GenericMessage {
@@ -40,14 +44,31 @@ impl GenericMessage {
     /// ```
     pub fn new(message: String, role: GenericRole) -> Self {
         Self {
-            message,
+            content: Some(message),
             role,
             name: None,
+            tool_call_id: None,
+            tool_calls: None,
+        }
+    }
+
+    pub fn new_tool_call(tool_call_id: String, tool_calls: Vec<GenericFunctionCallIntent>) -> Self {
+        Self {
+            content: None,
+            role: GenericRole::Assistant,
+            name: None,
+            tool_calls: Some(tool_calls),
+            tool_call_id: Some(tool_call_id),
         }
     }
 
     pub fn with_name(mut self, name: impl ToString) -> Self {
         self.name = Some(name.to_string());
+        self
+    }
+
+    pub fn with_tool_call_id(mut self, tool_call_id: impl ToString) -> Self {
+        self.tool_call_id = Some(tool_call_id.to_string());
         self
     }
 }
@@ -56,7 +77,8 @@ impl GenericMessage {
 ///
 /// The `Display` implementation renders the canonical lowercase name so you
 /// can feed it directly into JSON without extra mapping logic.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Copy, PartialEq, Eq)]
+#[serde(rename_all = "snake_case")]
 pub enum GenericRole {
     /// “System” messages define global behaviour and style guidelines.
     System,
@@ -82,14 +104,14 @@ impl Display for GenericRole {
 
 #[derive(Debug)]
 pub struct GenericChatCompletionResponse<T> {
-    pub content: T,
+    pub content: ResponseContent<T>,
     pub usage: Option<GenericUsageReport>,
 }
 
-pub struct GenericChatResponseMessage {
-    pub content: Option<String>,
-    pub role: GenericRole,
-    pub tool_calls: Option<Vec<GenericFunctionCallIntent>>,
+#[derive(Debug)]
+pub enum ResponseContent<T> {
+    Finished(T),
+    ToolCalls(GenericMessage),
 }
 
 #[derive(Debug)]
@@ -99,11 +121,13 @@ pub struct GenericUsageReport {
     pub total_tokens: i64,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenericFunctionCallIntent {
     pub id: String,
     pub function: GenericFunctionCall,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GenericFunctionCall {
     pub name: String,
     pub arguments: serde_json::Value,
@@ -115,4 +139,11 @@ pub enum GenericStramingChatChunk {
     Failed,
     OutputTextDelta,
     OutputTextDone,
+}
+
+#[derive(Debug, Clone)]
+pub struct GenericFunctionSpec {
+    pub name: String,
+    pub description: String,
+    pub parameters: serde_json::Value,
 }

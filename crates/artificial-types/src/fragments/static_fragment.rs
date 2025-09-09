@@ -56,10 +56,6 @@ impl IntoPrompt for StaticFragment<'_> {
     type Message = GenericMessage;
 
     fn into_prompt(self) -> Vec<Self::Message> {
-        vec![Self::Message {
-            role: self.0.1,
-            name: None,
-            message: self.0.0.to_string(),
-        }]
+        vec![GenericMessage::new(self.0.0.to_string(), self.0.1)]
     }
 }

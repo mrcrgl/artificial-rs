@@ -2,7 +2,7 @@ use std::{future::Future, pin::Pin};
 
 use crate::{
     error::Result,
-    generic::{GenericChatCompletionResponse, GenericChatResponseMessage},
+    generic::{GenericChatCompletionResponse, GenericFunctionSpec, GenericMessage},
     model::Model,
 };
 use futures_core::stream::Stream;
@@ -27,11 +27,7 @@ pub trait ChatCompletionProvider: Send + Sync {
         &self,
         params: ChatCompleteParameters<M>,
     ) -> Pin<
-        Box<
-            dyn Future<Output = Result<GenericChatCompletionResponse<GenericChatResponseMessage>>>
-                + Send
-                + 'p,
-        >,
+        Box<dyn Future<Output = Result<GenericChatCompletionResponse<GenericMessage>>> + Send + 'p>,
     >
     where
         M: Into<Self::Message> + Send + Sync + 'p;
@@ -57,20 +53,48 @@ pub trait StreamingChatProvider: ChatCompletionProvider {
 }
 
 pub struct ChatCompleteParameters<M> {
-    messages: Vec<M>,
-    model: Model,
+    pub messages: Vec<M>,
+    pub model: Model,
+    pub tools: Option<Vec<GenericFunctionSpec>>,
+    pub temperature: Option<f64>,
+    pub response_format: Option<serde_json::Value>,
 }
 
 impl<M> ChatCompleteParameters<M> {
     pub fn new(messages: Vec<M>, model: Model) -> Self {
-        Self { messages, model }
+        Self {
+            messages,
+            model,
+            tools: None,
+            temperature: None,
+            response_format: None,
+        }
     }
 
-    pub fn into_messages(self) -> Vec<M> {
-        self.messages
+    pub fn messages(&self) -> &Vec<M> {
+        &self.messages
     }
 
     pub fn model(&self) -> Model {
         self.model.clone()
+    }
+
+    pub fn tools(&self) -> Option<&Vec<GenericFunctionSpec>> {
+        self.tools.as_ref()
+    }
+
+    pub fn with_temperature(mut self, temperature: f64) -> Self {
+        self.temperature = Some(temperature);
+        self
+    }
+
+    pub fn with_response_format(mut self, response_format: serde_json::Value) -> Self {
+        self.response_format = Some(response_format);
+        self
+    }
+
+    pub fn with_tools(mut self, tools: Vec<GenericFunctionSpec>) -> Self {
+        self.tools = Some(tools);
+        self
     }
 }

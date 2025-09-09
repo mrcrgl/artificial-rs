@@ -5,7 +5,7 @@ use artificial_core::model::{Model, OpenAiModel};
 const GPT4_O_MINI: &str = "gpt-4o-mini";
 const GPT4_O: &str = "gpt-4o";
 const O3: &str = "o3";
-const O3_MINI: &str = "03-mini";
+const O3_MINI: &str = "o3-mini";
 const O4_MINI: &str = "o4-mini";
 
 pub(crate) fn map_model(model: &Model) -> Option<Cow<'static, str>> {
