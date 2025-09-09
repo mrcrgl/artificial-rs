@@ -50,13 +50,7 @@ impl ChatCompletionRequest {
 
 impl_builder_methods!(
     ChatCompletionRequest,
-    temperature: f64,
-    top_p: f64,
-    n: i64,
-    response_format: serde_json::Value,
-    stream: bool,
-    tools: Vec<ToolSpec>,
-    tool_choice: ToolChoice
+    response_format: serde_json::Value
 );
 
 impl<M> TryFrom<ChatCompleteParameters<M>> for ChatCompletionRequest
@@ -76,7 +70,7 @@ where
             messages: value.messages.into_iter().map(Into::into).collect(),
             tools: value
                 .tools
-                .and_then(|tools| Some(tools.into_iter().map(Into::into).collect())),
+                .map(|tools| tools.into_iter().map(Into::into).collect()),
             temperature: value.temperature,
             top_p: None,
             n: None,
@@ -232,20 +226,21 @@ pub struct ChatCompletionMessageForResponse {
     pub name: Option<String>,
 }
 
-impl Into<GenericMessage> for ChatCompletionMessageForResponse {
-    fn into(self) -> GenericMessage {
+impl From<ChatCompletionMessageForResponse> for GenericMessage {
+    fn from(val: ChatCompletionMessageForResponse) -> Self {
         GenericMessage {
-            content: self.content,
-            role: self.role.into(),
-            tool_calls: self
+            content: val.content,
+            role: val.role.into(),
+            tool_calls: val
                 .tool_calls
                 .map(|calls| calls.into_iter().map(Into::into).collect()),
-            name: self.name,
-            tool_call_id: self.tool_call_id,
+            name: val.name,
+            tool_call_id: val.tool_call_id,
         }
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ChatCompletionChoice {
     pub index: i64,
@@ -254,6 +249,7 @@ pub struct ChatCompletionChoice {
     pub finish_details: Option<FinishDetails>,
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Deserialize)]
 pub struct ChatCompletionResponse {
     pub id: Option<String>,
@@ -274,8 +270,8 @@ pub enum FinishReason {
     ToolCalls,
 }
 
+#[allow(non_camel_case_types, dead_code)]
 #[derive(Debug, Deserialize)]
-#[allow(non_camel_case_types)]
 pub struct FinishDetails {
     pub r#type: FinishReason,
     pub stop: String,
@@ -292,9 +288,9 @@ impl From<GenericRole> for MessageRole {
     }
 }
 
-impl Into<GenericRole> for MessageRole {
-    fn into(self) -> GenericRole {
-        match self {
+impl From<MessageRole> for GenericRole {
+    fn from(val: MessageRole) -> Self {
+        match val {
             MessageRole::User => GenericRole::User,
             MessageRole::System => GenericRole::System,
             MessageRole::Assistant => GenericRole::Assistant,
@@ -308,11 +304,11 @@ impl From<GenericMessage> for ChatCompletionMessage {
     fn from(value: GenericMessage) -> Self {
         Self {
             role: value.role.into(),
-            content: value.content.map(|v| Content::Text(v)),
+            content: value.content.map(Content::Text),
             name: value.name,
             tool_calls: value
                 .tool_calls
-                .and_then(|v| Some(v.into_iter().map(Into::into).collect())),
+                .map(|v| v.into_iter().map(Into::into).collect()),
             tool_call_id: value.tool_call_id,
         }
     }

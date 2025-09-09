@@ -79,7 +79,7 @@ impl<'a> CaptureMemory<'a> {
         Self {
             system_base_fragment: BASE_SYSTEM_ROLE.into(),
             memory_architect_role_fragment: MEMORY_ARCHITECT_ROLE.into(),
-            agent_fragment: AgentProfileFragment::new(member, &team_profile.team_name),
+            agent_fragment: AgentProfileFragment::new(member, team_profile.team_name),
             team_fragment: TeamProfileFragment::new(team_profile),
             history_fragment: MessageHistoryFragment::new(history),
         }
@@ -186,7 +186,7 @@ async fn main() -> anyhow::Result<()> {
     let prompt = CaptureMemory::new(&member_r2d2, &history, &team_profile);
     let result = client.prompt_execute(prompt).await?;
 
-    println!("🤖 LLM remembered:\n{:#?}", result);
+    println!("🤖 LLM remembered:\n{result:#?}");
 
     Ok(())
 }

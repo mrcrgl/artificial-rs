@@ -33,12 +33,12 @@ pub trait PromptExecutionProvider: Send + Sync {
     /// The blanket constraint `P: PromptTemplate<Message = Self::Message>`
     /// guarantees at **compile time** that callers only feed the backend
     /// messages it understands.
-    fn prompt_execute<'a, 'p, P>(
-        &'a self,
-        prompt: P,
-    ) -> Pin<Box<dyn Future<Output = Result<GenericChatCompletionResponse<P::Output>>> + Send + 'p>>
+    fn prompt_execute<'a, 'p, P>(&'a self, prompt: P) -> BoxedResponseFut<'p, P::Output>
     where
         'a: 'p,
         P: PromptTemplate + Send + Sync + 'p,
         <P as IntoPrompt>::Message: Into<Self::Message>;
 }
+
+pub type BoxedResponseFut<'p, Output> =
+    Pin<Box<dyn Future<Output = Result<GenericChatCompletionResponse<Output>>> + Send + 'p>>;

@@ -8,11 +8,11 @@ pub struct ToolCall {
     pub r#type: ToolType,
 }
 
-impl Into<GenericFunctionCallIntent> for ToolCall {
-    fn into(self) -> GenericFunctionCallIntent {
+impl From<ToolCall> for GenericFunctionCallIntent {
+    fn from(val: ToolCall) -> Self {
         GenericFunctionCallIntent {
-            id: self.id,
-            function: self.function.into(),
+            id: val.id,
+            function: val.function.into(),
         }
     }
 }
@@ -39,11 +39,11 @@ pub struct ToolCallFunction {
     pub arguments: serde_json::Value,
 }
 
-impl Into<GenericFunctionCall> for ToolCallFunction {
-    fn into(self) -> GenericFunctionCall {
+impl From<ToolCallFunction> for GenericFunctionCall {
+    fn from(val: ToolCallFunction) -> Self {
         GenericFunctionCall {
-            name: self.name,
-            arguments: self.arguments,
+            name: val.name,
+            arguments: val.arguments,
         }
     }
 }
