@@ -1,12 +1,15 @@
-use std::time::Duration;
+use async_stream::try_stream;
 
+use futures_core::Stream;
+use futures_util::StreamExt;
 use reqwest::{
     Client as HttpClient,
     header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue},
 };
+use std::time::Duration;
 
 use crate::{
-    api_v1::chat_completion::{ChatCompletionRequest, ChatCompletionResponse},
+    api_v1::{ChatCompletionChunkResponse, ChatCompletionRequest, ChatCompletionResponse},
     error::OpenAiError,
 };
 
@@ -82,5 +85,59 @@ impl OpenAiClient {
         let bytes = resp.bytes().await?;
         let parsed: ChatCompletionResponse = serde_json::from_slice(&bytes)?;
         Ok(parsed)
+    }
+
+    /// Perform a **streaming** chat completion.
+    pub fn chat_completion_stream(
+        &self,
+        mut request: ChatCompletionRequest,
+    ) -> impl Stream<Item = Result<ChatCompletionChunkResponse, OpenAiError>> + '_ {
+        use reqwest::header::{ACCEPT, HeaderValue};
+
+        // 1) enforce streaming flag
+        request.stream = Some(true);
+
+        // 2) headers (incl. SSE accept)
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+        );
+        headers.insert(ACCEPT, HeaderValue::from_static("text/event-stream"));
+
+        let url = format!("{}/chat/completions", self.base);
+
+        // 3) async stream wrapper
+        try_stream! {
+            let resp = self.http.post(url).headers(headers).json(&request).send().await?;
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                return  Err(OpenAiError::Api { status, body })?;
+            }
+
+            let mut bytes_stream = resp.bytes_stream();
+            let mut buf = Vec::new();
+
+            while let Some(chunk) = bytes_stream.next().await {
+                let chunk = chunk?;
+                buf.extend_from_slice(&chunk);
+
+                while let Some(pos) = buf.windows(2).position(|w| w == b"\n\n") {
+                    let frame: Vec<u8> = buf.drain(..pos + 2).collect();
+                    let frame_str = std::str::from_utf8(&frame)?;
+
+                    if let Some(data) = frame_str.strip_prefix("data: ") {
+                        let data = data.trim();
+                        if data == "[DONE]" { return; }
+
+                        let parsed: ChatCompletionChunkResponse = serde_json::from_str(data)?;
+                        yield parsed;
+                    }
+                }
+            }
+        }
     }
 }

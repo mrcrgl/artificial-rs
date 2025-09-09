@@ -111,6 +111,11 @@ impl PromptBuilder {
         self
     }
 
+    /// Insert a "---" delimiter.
+    pub fn add_delimiter(self) -> Self {
+        self.add_line("---")
+    }
+
     /// Insert a horizontal tab character (`\t`).
     ///
     /// Rarely needed, but handy when you want to indent an entire block.
