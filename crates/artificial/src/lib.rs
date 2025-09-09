@@ -41,7 +41,7 @@
 //! };
 //!
 //! // Define the answer shape
-//! #[derive(serde::Deserialize, schemars::JsonSchema)]
+//! #[derive(Debug, serde::Deserialize, schemars::JsonSchema)]
 //! struct Hello { greeting: String }
 //!
 //! // Implement a tiny prompt
@@ -62,7 +62,7 @@
 //!     let backend = artificial::openai::OpenAiAdapterBuilder::new_from_env().build()?;
 //!     let client  = ArtificialClient::new(backend);
 //!     let answer  = client.prompt_execute(AskHello).await?;
-//!     println!("{}", answer.greeting);
+//!     println!("{:?}", answer.content);
 //!     Ok(())
 //! }
 //! ```

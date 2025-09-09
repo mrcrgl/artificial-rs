@@ -49,8 +49,6 @@ impl ChatCompletionProvider for OpenAiAdapter {
                 return Err(OpenAiError::Format("response has no choices".into()).into());
             };
 
-            println!("Response: {first_choice:?}");
-
             match &first_choice.finish_reason {
                 Some(FinishReason::ToolCalls) => {
                     let response = GenericChatCompletionResponse {
