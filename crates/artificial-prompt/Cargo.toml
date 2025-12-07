@@ -1,6 +1,6 @@
 [package]
 name = "artificial-prompt"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2024"
 description = "Fluent builders and helpers for composing markdown prompt fragments"
 license = "MIT"
@@ -9,4 +9,4 @@ categories = ["development-tools", "text-processing"]
 keywords = ["ai", "prompt", "markdown", "builder"]
 
 [dependencies]
-artificial-core = { path = "../artificial-core" , version = "0.1.0"}
+artificial-core = { path = "../artificial-core" , version = "0.2.0"}
