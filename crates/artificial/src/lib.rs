@@ -77,6 +77,7 @@
 //! _Happy prompting & may your JSON always validate!_
 #![doc(html_root_url = "https://docs.rs/artificial/latest")]
 
+pub use artificial_core::generic::StreamingEventsProvider;
 pub use artificial_core::*;
 pub use artificial_prompt as prompt;
 pub use artificial_types as types;

@@ -36,14 +36,15 @@ pub enum ToolType {
 #[derive(Debug, Clone, Deserialize, Serialize)]
 pub struct ToolCallFunction {
     pub name: String,
-    pub arguments: serde_json::Value,
+    pub arguments: String,
 }
 
 impl From<ToolCallFunction> for GenericFunctionCall {
     fn from(val: ToolCallFunction) -> Self {
         GenericFunctionCall {
             name: val.name,
-            arguments: val.arguments,
+            arguments: serde_json::from_str(&val.arguments)
+                .unwrap_or_else(|_| serde_json::Value::String(val.arguments)),
         }
     }
 }
@@ -52,7 +53,7 @@ impl From<GenericFunctionCall> for ToolCallFunction {
     fn from(value: GenericFunctionCall) -> Self {
         Self {
             name: value.name,
-            arguments: value.arguments,
+            arguments: value.arguments.to_string(),
         }
     }
 }
