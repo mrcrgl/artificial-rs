@@ -1,9 +1,6 @@
 use serde::Deserialize;
 
-use super::{
-    chat_completion::{FinishReason, MessageRole},
-    tools::ToolCall,
-};
+use super::chat_completion::{FinishReason, MessageRole};
 
 /// A delta message as returned by OpenAI when `stream = true`.
 #[allow(dead_code)]
@@ -14,7 +11,27 @@ pub struct ChatCompletionMessageDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub content: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_calls: Option<Vec<ToolCall>>,
+    pub tool_calls: Option<Vec<ToolCallDelta>>,
+}
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+pub struct ToolCallDelta {
+    pub index: usize,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub r#type: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub function: Option<ToolCallFunctionDelta>,
+}
+
+#[allow(dead_code)]
+#[derive(Debug, Deserialize)]
+pub struct ToolCallFunctionDelta {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub name: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub arguments: Option<String>,
 }
 
 /// A single streaming choice payload.

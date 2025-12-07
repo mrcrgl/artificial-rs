@@ -114,7 +114,7 @@ pub enum ResponseContent<T> {
     ToolCalls(GenericMessage),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct GenericUsageReport {
     pub prompt_tokens: i64,
     pub completion_tokens: i64,
@@ -146,4 +146,52 @@ pub struct GenericFunctionSpec {
     pub name: String,
     pub description: String,
     pub parameters: serde_json::Value,
+}
+
+#[derive(Debug, Clone)]
+pub enum StreamEvent {
+    /// Plain text delta emitted by the assistant.
+    TextDelta(String),
+
+    /// A tool-call was initiated (OpenAI-style indexed stream).
+    ToolCallStart {
+        index: usize,
+        id: Option<String>,
+        name: Option<String>,
+    },
+
+    /// A partial arguments JSON fragment for tool-call at `index`.
+    ToolCallArgumentsDelta {
+        index: usize,
+        arguments_fragment: String,
+    },
+
+    /// A completed tool-call intent (arguments parsed into JSON).
+    ToolCallComplete {
+        index: usize,
+        intent: GenericFunctionCallIntent,
+    },
+
+    /// The assistant finished the message (e.g. stop or tool_calls).
+    MessageEnd,
+
+    /// Optional token usage report at the end of the stream.
+    Usage(GenericUsageReport),
+}
+
+/// Provider-agnostic trait for streaming structured events (text + tool-calls).
+/// This complements the existing text-only `StreamingChatProvider` trait.
+pub trait StreamingEventsProvider: crate::provider::ChatCompletionProvider {
+    type EventStream<'s>: futures_core::stream::Stream<Item = crate::error::Result<StreamEvent>>
+        + Send
+        + 's
+    where
+        Self: 's;
+
+    fn chat_complete_events_stream<'p, M>(
+        &self,
+        params: crate::provider::ChatCompleteParameters<M>,
+    ) -> Self::EventStream<'p>
+    where
+        M: Into<Self::Message> + Send + Sync + 'p;
 }
