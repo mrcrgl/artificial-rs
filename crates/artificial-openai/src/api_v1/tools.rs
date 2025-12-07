@@ -44,7 +44,7 @@ impl From<ToolCallFunction> for GenericFunctionCall {
         GenericFunctionCall {
             name: val.name,
             arguments: serde_json::from_str(&val.arguments)
-                .unwrap_or_else(|_| serde_json::Value::String(val.arguments)),
+                .unwrap_or(serde_json::Value::String(val.arguments)),
         }
     }
 }

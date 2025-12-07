@@ -79,11 +79,10 @@ impl StreamingEventsProvider for OpenAiAdapter {
                     if choice.index != 0 { continue; }
 
                     // Text deltas
-                    if let Some(delta) = choice.delta.content {
-                        if !delta.is_empty() {
+                    if let Some(delta) = choice.delta.content
+                        && !delta.is_empty() {
                             yield StreamEvent::TextDelta(delta);
                         }
-                    }
 
                     // Tool-call deltas
                     if let Some(tool_calls) = choice.delta.tool_calls {
@@ -118,7 +117,7 @@ impl StreamingEventsProvider for OpenAiAdapter {
                                 }
 
                                 if let Some(arguments) = func.arguments {
-                                    let buf = tool_args.entry(tc.index).or_insert_with(String::new);
+                                    let buf = tool_args.entry(tc.index).or_default();
                                     buf.push_str(&arguments);
                                     if !arguments.is_empty() {
                                         yield StreamEvent::ToolCallArgumentsDelta {
