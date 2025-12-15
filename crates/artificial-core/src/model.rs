@@ -24,7 +24,6 @@
 //! assert_eq!(Model::from(OpenAiModel::Gpt4oMini),
 //!            Model::OpenAi(OpenAiModel::Gpt4oMini));
 //! ```
-use std::borrow::Cow;
 
 /// Universal identifier for an LLM model.
 ///
@@ -35,7 +34,7 @@ pub enum Model {
     /// Built-in OpenAI models (chat completion API).
     OpenAi(OpenAiModel),
     /// Fully qualified provider/model ID (`"provider:model-name"` or similar).
-    Custom(Cow<'static, str>),
+    Custom(&'static str),
 }
 
 /// Exhaustive list of models **officially** supported by the OpenAI back-end.
@@ -44,9 +43,12 @@ pub enum Model {
 /// arbitrary model names through [`Model::Custom`].
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum OpenAiModel {
-    /// GPT-4o flagship (all-round best quality, vision support).
+    Gpt5,
+    Gpt5Nano,
+    Gpt5Mini,
+    Gpt5_1,
+    Gpt5_2,
     Gpt4o,
-    /// GPT-4o mini (cheaper, currently in phased rollout).
     Gpt4oMini,
     O3,
     O3Mini,

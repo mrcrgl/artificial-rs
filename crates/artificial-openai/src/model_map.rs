@@ -1,16 +1,19 @@
-use std::borrow::Cow;
-
 use artificial_core::model::{Model, OpenAiModel};
 
+const GPT5: &str = "gpt-5";
+const GPT5_1: &str = "gpt-5.1";
+const GPT5_2: &str = "gpt-5.2";
+const GPT5_NANO: &str = "gpt-5-nano";
+const GPT5_MINI: &str = "gpt-5-mini";
 const GPT4_O_MINI: &str = "gpt-4o-mini";
 const GPT4_O: &str = "gpt-4o";
 const O3: &str = "o3";
 const O3_MINI: &str = "o3-mini";
 const O4_MINI: &str = "o4-mini";
 
-pub(crate) fn map_model(model: &Model) -> Option<Cow<'static, str>> {
-    if let Model::Custom(custom) = model {
-        return Some(custom.clone());
+pub(crate) fn map_model(model: &Model) -> Option<&'static str> {
+    if let Model::Custom(custom) = *model {
+        return Some(custom);
     }
 
     let Model::OpenAi(openai_model) = model else {
@@ -23,5 +26,10 @@ pub(crate) fn map_model(model: &Model) -> Option<Cow<'static, str>> {
         OpenAiModel::O3 => Some(O3.into()),
         OpenAiModel::O3Mini => Some(O3_MINI.into()),
         OpenAiModel::O4Mini => Some(O4_MINI.into()),
+        OpenAiModel::Gpt5 => Some(GPT5.into()),
+        OpenAiModel::Gpt5Nano => Some(GPT5_NANO.into()),
+        OpenAiModel::Gpt5Mini => Some(GPT5_MINI.into()),
+        OpenAiModel::Gpt5_1 => Some(GPT5_1.into()),
+        OpenAiModel::Gpt5_2 => Some(GPT5_2.into()),
     }
 }
