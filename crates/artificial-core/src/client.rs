@@ -33,7 +33,7 @@ use std::{future::Future, pin::Pin, sync::Arc};
 
 use crate::{
     error::Result,
-    generic::GenericChatCompletionResponse,
+    generic::{GenericChatCompletionResponse, StreamingEventsProvider},
     provider::{
         ChatCompleteParameters, ChatCompletionProvider, PromptExecutionProvider,
         StreamingChatProvider,
@@ -116,5 +116,22 @@ impl<B: StreamingChatProvider> StreamingChatProvider for ArtificialClient<B> {
         M: Into<Self::Message> + Send + Sync + 'p,
     {
         self.backend.chat_complete_stream(params)
+    }
+}
+
+impl<B: StreamingEventsProvider> StreamingEventsProvider for ArtificialClient<B> {
+    type EventStream<'s>
+        = B::EventStream<'s>
+    where
+        Self: 's;
+
+    fn chat_complete_events_stream<'p, M>(
+        &self,
+        params: crate::provider::ChatCompleteParameters<M>,
+    ) -> Self::EventStream<'p>
+    where
+        M: Into<Self::Message> + Send + Sync + 'p,
+    {
+        self.backend.chat_complete_events_stream(params)
     }
 }
