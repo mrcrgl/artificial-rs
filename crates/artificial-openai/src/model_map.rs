@@ -21,15 +21,15 @@ pub(crate) fn map_model(model: &Model) -> Option<&'static str> {
     };
 
     match openai_model {
-        OpenAiModel::Gpt4o => Some(GPT4_O.into()),
-        OpenAiModel::Gpt4oMini => Some(GPT4_O_MINI.into()),
-        OpenAiModel::O3 => Some(O3.into()),
-        OpenAiModel::O3Mini => Some(O3_MINI.into()),
-        OpenAiModel::O4Mini => Some(O4_MINI.into()),
-        OpenAiModel::Gpt5 => Some(GPT5.into()),
-        OpenAiModel::Gpt5Nano => Some(GPT5_NANO.into()),
-        OpenAiModel::Gpt5Mini => Some(GPT5_MINI.into()),
-        OpenAiModel::Gpt5_1 => Some(GPT5_1.into()),
-        OpenAiModel::Gpt5_2 => Some(GPT5_2.into()),
+        OpenAiModel::Gpt4o => Some(GPT4_O),
+        OpenAiModel::Gpt4oMini => Some(GPT4_O_MINI),
+        OpenAiModel::O3 => Some(O3),
+        OpenAiModel::O3Mini => Some(O3_MINI),
+        OpenAiModel::O4Mini => Some(O4_MINI),
+        OpenAiModel::Gpt5 => Some(GPT5),
+        OpenAiModel::Gpt5Nano => Some(GPT5_NANO),
+        OpenAiModel::Gpt5Mini => Some(GPT5_MINI),
+        OpenAiModel::Gpt5_1 => Some(GPT5_1),
+        OpenAiModel::Gpt5_2 => Some(GPT5_2),
     }
 }
