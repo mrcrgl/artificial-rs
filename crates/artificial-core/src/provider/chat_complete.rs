@@ -52,6 +52,7 @@ pub trait StreamingChatProvider: ChatCompletionProvider {
         M: Into<Self::Message> + Send + Sync + 'p;
 }
 
+#[derive(Debug, Clone)]
 pub struct ChatCompleteParameters<M> {
     pub messages: Vec<M>,
     pub model: Model,

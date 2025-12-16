@@ -39,4 +39,7 @@ pub enum ArtificialError {
 
     #[error("invalid: {0}")]
     Invalid(String),
+
+    #[error("other: {0}")]
+    Other(String),
 }
