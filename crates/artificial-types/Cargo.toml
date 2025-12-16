@@ -1,6 +1,6 @@
 [package]
 name = "artificial-types"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2024"
 description = "Reusable prompt fragments and helper types for the Artificial prompt-engineering SDK"
 license = "MIT"
@@ -9,8 +9,8 @@ categories = ["development-tools", "text-processing"]
 keywords = ["ai", "prompt-fragments", "json-schema", "sdk"]
 
 [dependencies]
-artificial-core = { path = "../artificial-core" , version = "0.4.0"}
-artificial-prompt = { path = "../artificial-prompt" , version = "0.4.0"}
+artificial-core = { path = "../artificial-core" , version = "0.4.1"}
+artificial-prompt = { path = "../artificial-prompt" , version = "0.4.1"}
 chrono = "0.4.41"
 
 schemars.workspace = true
