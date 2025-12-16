@@ -1,6 +1,6 @@
 [package]
 name = "artificial-core"
-version = "0.4.1"
+version = "0.4.2"
 edition = "2021"
 description = "Provider-agnostic core traits, generic client and error types for the Artificial prompt-engineering SDK"
 license = "MIT"

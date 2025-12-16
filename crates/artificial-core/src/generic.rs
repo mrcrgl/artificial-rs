@@ -189,10 +189,10 @@ pub trait StreamingEventsProvider: crate::provider::ChatCompletionProvider {
     where
         Self: 's;
 
-    fn chat_complete_events_stream<'p, M>(
-        &self,
+    fn chat_complete_events_stream<'s, M>(
+        &'s self,
         params: crate::provider::ChatCompleteParameters<M>,
-    ) -> Self::EventStream<'p>
+    ) -> Self::EventStream<'s>
     where
-        M: Into<Self::Message> + Clone + Send + Sync + 'p;
+        M: Into<Self::Message> + Clone + Send + Sync + 's;
 }
