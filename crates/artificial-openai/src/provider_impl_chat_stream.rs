@@ -1,6 +1,7 @@
 use std::pin::Pin;
 
 use crate::OpenAiAdapter;
+use crate::api_v1::ChatCompletionMessage;
 use crate::api_v1::ChatCompletionRequest;
 use crate::api_v1::FinishReason;
 use artificial_core::error::{ArtificialError, Result};
@@ -11,6 +12,8 @@ use futures_core::stream::Stream;
 use std::collections::HashMap;
 
 impl StreamingChatProvider for OpenAiAdapter {
+    type Message = ChatCompletionMessage;
+
     type Delta<'s>
         = Pin<Box<dyn Stream<Item = Result<String>> + Send + 's>>
     where

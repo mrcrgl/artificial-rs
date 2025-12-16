@@ -106,6 +106,8 @@ impl<B: ChatCompletionProvider> ChatCompletionProvider for ArtificialClient<B> {
 }
 
 impl<B: StreamingChatProvider> StreamingChatProvider for ArtificialClient<B> {
+    type Message = B::Message;
+
     type Delta<'s>
         = B::Delta<'s>
     where

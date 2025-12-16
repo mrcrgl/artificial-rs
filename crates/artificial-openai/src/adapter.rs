@@ -2,7 +2,7 @@ use std::{env, sync::Arc};
 
 use artificial_core::error::{ArtificialError, Result};
 
-use crate::client::OpenAiClient;
+use crate::client::{OpenAiClient, RetryPolicy};
 
 /// Thin wrapper that wires the HTTP client [`OpenAiClient`] into a value that
 /// implements [`artificial_core::backend::Backend`].
@@ -40,6 +40,7 @@ impl OpenAiAdapter {}
 #[derive(Default)]
 pub struct OpenAiAdapterBuilder {
     pub(crate) api_key: Option<String>,
+    pub(crate) retry: Option<RetryPolicy>,
 }
 
 impl OpenAiAdapterBuilder {
@@ -57,7 +58,14 @@ impl OpenAiAdapterBuilder {
     pub fn new_from_env() -> Self {
         Self {
             api_key: env::var("OPENAI_API_KEY").ok(),
+            retry: None,
         }
+    }
+
+    /// Set a retry policy for OpenAI HTTP calls.
+    pub fn with_retry_policy(mut self, retry: RetryPolicy) -> Self {
+        self.retry = Some(retry);
+        self
     }
 
     /// Finalise the builder and return a ready-to-use adapter.
@@ -66,10 +74,18 @@ impl OpenAiAdapterBuilder {
     ///
     /// * [`ArtificialError::Invalid`] – if the API key is missing.
     pub fn build(self) -> Result<OpenAiAdapter> {
+        let api_key = self.api_key.ok_or(ArtificialError::Invalid(
+            "missing env variable: `OPENAI_API_KEY`".into(),
+        ))?;
+
+        let client = if let Some(retry) = self.retry {
+            OpenAiClient::new(api_key).with_retry_policy(retry)
+        } else {
+            OpenAiClient::new(api_key)
+        };
+
         Ok(OpenAiAdapter {
-            client: Arc::new(OpenAiClient::new(self.api_key.ok_or(
-                ArtificialError::Invalid("missing env variable: `OPENAI_API_KEY`".into()),
-            )?)),
+            client: Arc::new(client),
         })
     }
 }

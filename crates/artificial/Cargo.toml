@@ -13,6 +13,7 @@ keywords = ["ai", "openai", "prompt-engineering", "json-schema", "typed"]
 [features]
 default = ["openai"]
 openai = ["dep:artificial-openai"]
+tracing = ["artificial-openai/tracing"]
 
 [dependencies]
 artificial-types = { path = "../artificial-types", version = "0.4.2" }

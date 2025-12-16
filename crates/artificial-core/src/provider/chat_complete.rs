@@ -39,7 +39,10 @@ pub trait ChatCompletionProvider: Send + Sync {
 /// Tool-call and richer payload support can be layered on later by
 /// introducing a dedicated enum – starting with plain text keeps the API
 /// minimal and backend-agnostic.
-pub trait StreamingChatProvider: ChatCompletionProvider {
+pub trait StreamingChatProvider: Send + Sync {
+    /// Chat message type consumed by this backend.
+    type Message: Send + Sync + 'static;
+
     /// The item type returned on the stream.  For now it is plain UTF-8 text
     /// chunks, but back-ends are free to wrap it in richer enums if needed.
     type Delta<'s>: Stream<Item = Result<String>> + Send + 's
