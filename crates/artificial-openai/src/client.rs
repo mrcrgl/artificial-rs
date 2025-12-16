@@ -7,8 +7,6 @@ use reqwest::{
     header::{AUTHORIZATION, CONTENT_TYPE, HeaderMap, HeaderValue},
 };
 use std::time::Duration;
-#[cfg(feature = "tracing")]
-use tracing::{info, warn};
 
 use crate::{
     api_v1::{ChatCompletionChunkResponse, ChatCompletionRequest, ChatCompletionResponse},
@@ -77,7 +75,7 @@ fn log_rate_limit_tight(headers: &reqwest::header::HeaderMap, context: &str) {
         rem_tokens <= 128 || (lim_tokens > 0 && rem_tokens as f32 / lim_tokens as f32 <= 0.05);
 
     if tight_reqs || tight_tokens {
-        warn!(
+        tracing::warn!(
             context,
             remaining_requests = rem_reqs,
             limit_requests = lim_reqs,
@@ -86,7 +84,7 @@ fn log_rate_limit_tight(headers: &reqwest::header::HeaderMap, context: &str) {
             "rate limit headroom is tight"
         );
     } else {
-        info!(
+        tracing::debug!(
             context,
             remaining_requests = rem_reqs,
             limit_requests = lim_reqs,
@@ -219,7 +217,7 @@ impl OpenAiClient {
                         }
                         #[cfg(feature = "tracing")]
                         {
-                            info!(
+                            tracing::info!(
                                 attempt = attempt,
                                 status = %status,
                                 backoff_ms = delay.as_millis() as u64,
@@ -242,7 +240,7 @@ impl OpenAiClient {
                             #[cfg(feature = "tracing")]
                             {
                                 let ra_ms = retry_after.map(|d| d.as_millis() as u64);
-                                warn!(
+                                tracing::warn!(
                                     status = %status,
                                     retry_after_ms = ?ra_ms,
                                     reset_at = ?reset_at,
@@ -269,7 +267,7 @@ impl OpenAiClient {
                         let delay = self.retry.backoff_for(attempt);
                         #[cfg(feature = "tracing")]
                         {
-                            info!(
+                            tracing::info!(
                                 attempt = attempt,
                                 backoff_ms = delay.as_millis() as u64,
                                 "retrying after transport error"
