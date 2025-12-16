@@ -55,7 +55,7 @@ impl_builder_methods!(
 
 impl<M> TryFrom<ChatCompleteParameters<M>> for ChatCompletionRequest
 where
-    M: Into<ChatCompletionMessage>,
+    M: Into<ChatCompletionMessage> + Clone,
 {
     type Error = ArtificialError;
 

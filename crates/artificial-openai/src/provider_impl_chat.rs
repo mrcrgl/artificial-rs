@@ -30,7 +30,7 @@ impl ChatCompletionProvider for OpenAiAdapter {
         >,
     >
     where
-        M: Into<Self::Message> + Send + Sync + 'p,
+        M: Into<Self::Message> + Clone + Send + Sync + 'p,
     {
         let client = Arc::clone(&self.client);
 
