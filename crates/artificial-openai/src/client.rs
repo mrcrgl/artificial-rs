@@ -15,10 +15,10 @@ use crate::{
 
 fn parse_retry_after_seconds(headers: &reqwest::header::HeaderMap) -> Duration {
     use reqwest::header::RETRY_AFTER;
-    if let Some(val) = headers.get(RETRY_AFTER).and_then(|hv| hv.to_str().ok()) {
-        if let Ok(secs) = val.trim().parse::<u64>() {
-            return Duration::from_secs(secs);
-        }
+    if let Some(val) = headers.get(RETRY_AFTER).and_then(|hv| hv.to_str().ok())
+        && let Ok(secs) = val.trim().parse::<u64>()
+    {
+        return Duration::from_secs(secs);
     }
     Duration::from_secs(0)
 }
@@ -208,6 +208,7 @@ impl OpenAiClient {
 
                     if should_retry && attempt < self.retry.max_retries {
                         let mut delay = self.retry.backoff_for(attempt);
+                        #[allow(unused_assignments)]
                         let mut hdr_delay = Duration::from_secs(0);
                         if self.retry.respect_retry_after {
                             hdr_delay = parse_retry_after_seconds(resp.headers());
