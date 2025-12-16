@@ -18,7 +18,7 @@ impl StreamingChatProvider for OpenAiAdapter {
 
     fn chat_complete_stream<'p, M>(&self, params: ChatCompleteParameters<M>) -> Self::Delta<'p>
     where
-        M: Into<Self::Message> + Send + Sync + 'p,
+        M: Into<Self::Message> + Clone + Send + Sync + 'p,
     {
         let client = self.client.clone();
 
@@ -55,7 +55,7 @@ impl StreamingEventsProvider for OpenAiAdapter {
         params: ChatCompleteParameters<M>,
     ) -> Self::EventStream<'p>
     where
-        M: Into<Self::Message> + Send + Sync + 'p,
+        M: Into<Self::Message> + Clone + Send + Sync + 'p,
     {
         let client = self.client.clone();
 

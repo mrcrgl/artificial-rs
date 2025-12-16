@@ -30,7 +30,7 @@ pub trait ChatCompletionProvider: Send + Sync {
         Box<dyn Future<Output = Result<GenericChatCompletionResponse<GenericMessage>>> + Send + 'p>,
     >
     where
-        M: Into<Self::Message> + Send + Sync + 'p;
+        M: Into<Self::Message> + Clone + Send + Sync + 'p;
 }
 
 /// A provider that can deliver the model’s answer **incrementally**.
@@ -49,11 +49,11 @@ pub trait StreamingChatProvider: ChatCompletionProvider {
     /// Start a streaming chat completion.
     fn chat_complete_stream<'p, M>(&self, params: ChatCompleteParameters<M>) -> Self::Delta<'p>
     where
-        M: Into<Self::Message> + Send + Sync + 'p;
+        M: Into<Self::Message> + Clone + Send + Sync + 'p;
 }
 
 #[derive(Debug, Clone)]
-pub struct ChatCompleteParameters<M> {
+pub struct ChatCompleteParameters<M: Clone> {
     pub messages: Vec<M>,
     pub model: Model,
     pub tools: Option<Vec<GenericFunctionSpec>>,
@@ -61,7 +61,7 @@ pub struct ChatCompleteParameters<M> {
     pub response_format: Option<serde_json::Value>,
 }
 
-impl<M> ChatCompleteParameters<M> {
+impl<M: Clone> ChatCompleteParameters<M> {
     pub fn new(messages: Vec<M>, model: Model) -> Self {
         Self {
             messages,
