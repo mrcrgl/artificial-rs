@@ -133,6 +133,7 @@ pub struct GenericFunctionCall {
     pub arguments: serde_json::Value,
 }
 
+#[derive(Debug, Clone, Copy)]
 pub enum GenericStramingChatChunk {
     Created,
     Completed,
