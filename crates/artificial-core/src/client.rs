@@ -87,19 +87,19 @@ impl<B: PromptExecutionProvider> PromptExecutionProvider for ArtificialClient<B>
 impl<B: ChatCompletionProvider> ChatCompletionProvider for ArtificialClient<B> {
     type Message = B::Message;
 
-    fn chat_complete<'p, M>(
-        &self,
+    fn chat_complete<'s, M>(
+        &'s self,
         params: ChatCompleteParameters<M>,
     ) -> Pin<
         Box<
             dyn Future<
                     Output = Result<GenericChatCompletionResponse<crate::generic::GenericMessage>>,
                 > + Send
-                + 'p,
+                + 's,
         >,
     >
     where
-        M: Into<Self::Message> + Clone + Send + Sync + 'p,
+        M: Into<Self::Message> + Clone + Send + Sync + 's,
     {
         self.backend.chat_complete(params)
     }
@@ -111,9 +111,9 @@ impl<B: StreamingChatProvider> StreamingChatProvider for ArtificialClient<B> {
     where
         Self: 's;
 
-    fn chat_complete_stream<'p, M>(&self, params: ChatCompleteParameters<M>) -> Self::Delta<'p>
+    fn chat_complete_stream<'s, M>(&'s self, params: ChatCompleteParameters<M>) -> Self::Delta<'s>
     where
-        M: Into<Self::Message> + Clone + Send + Sync + 'p,
+        M: Into<Self::Message> + Clone + Send + Sync + 's,
     {
         self.backend.chat_complete_stream(params)
     }
@@ -125,12 +125,12 @@ impl<B: StreamingEventsProvider> StreamingEventsProvider for ArtificialClient<B>
     where
         Self: 's;
 
-    fn chat_complete_events_stream<'p, M>(
-        &self,
+    fn chat_complete_events_stream<'s, M>(
+        &'s self,
         params: crate::provider::ChatCompleteParameters<M>,
-    ) -> Self::EventStream<'p>
+    ) -> Self::EventStream<'s>
     where
-        M: Into<Self::Message> + Clone + Send + Sync + 'p,
+        M: Into<Self::Message> + Clone + Send + Sync + 's,
     {
         self.backend.chat_complete_events_stream(params)
     }

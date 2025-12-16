@@ -23,14 +23,14 @@ pub trait ChatCompletionProvider: Send + Sync {
 
     /// Execute the chat prompt and deserialize the provider’s reply into
     /// `P::Output`.
-    fn chat_complete<'p, M>(
-        &self,
+    fn chat_complete<'s, M>(
+        &'s self,
         params: ChatCompleteParameters<M>,
     ) -> Pin<
-        Box<dyn Future<Output = Result<GenericChatCompletionResponse<GenericMessage>>> + Send + 'p>,
+        Box<dyn Future<Output = Result<GenericChatCompletionResponse<GenericMessage>>> + Send + 's>,
     >
     where
-        M: Into<Self::Message> + Clone + Send + Sync + 'p;
+        M: Into<Self::Message> + Clone + Send + Sync + 's;
 }
 
 /// A provider that can deliver the model’s answer **incrementally**.
@@ -47,9 +47,9 @@ pub trait StreamingChatProvider: ChatCompletionProvider {
         Self: 's;
 
     /// Start a streaming chat completion.
-    fn chat_complete_stream<'p, M>(&self, params: ChatCompleteParameters<M>) -> Self::Delta<'p>
+    fn chat_complete_stream<'s, M>(&'s self, params: ChatCompleteParameters<M>) -> Self::Delta<'s>
     where
-        M: Into<Self::Message> + Clone + Send + Sync + 'p;
+        M: Into<Self::Message> + Clone + Send + Sync + 's;
 }
 
 #[derive(Debug, Clone)]

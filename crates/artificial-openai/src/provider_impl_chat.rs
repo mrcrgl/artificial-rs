@@ -14,8 +14,8 @@ use crate::{
 impl ChatCompletionProvider for OpenAiAdapter {
     type Message = ChatCompletionMessage;
 
-    fn chat_complete<'p, M>(
-        &self,
+    fn chat_complete<'s, M>(
+        &'s self,
         params: ChatCompleteParameters<M>,
     ) -> std::pin::Pin<
         Box<
@@ -26,11 +26,11 @@ impl ChatCompletionProvider for OpenAiAdapter {
                         >,
                     >,
                 > + Send
-                + 'p,
+                + 's,
         >,
     >
     where
-        M: Into<Self::Message> + Clone + Send + Sync + 'p,
+        M: Into<Self::Message> + Clone + Send + Sync + 's,
     {
         let client = Arc::clone(&self.client);
 
