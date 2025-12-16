@@ -5,6 +5,9 @@ use super::chat_completion::{FinishReason, MessageRole};
 /// A delta message as returned by OpenAI when `stream = true`.
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
+#[deprecated(
+    note = "Deprecated: streaming types for chat/completions are superseded by /v1/responses streaming events."
+)]
 pub struct ChatCompletionMessageDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub role: Option<MessageRole>,
@@ -15,6 +18,9 @@ pub struct ChatCompletionMessageDelta {
 }
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
+#[deprecated(
+    note = "Deprecated: streaming types for chat/completions are superseded by /v1/responses streaming events."
+)]
 pub struct ToolCallDelta {
     pub index: usize,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -27,6 +33,9 @@ pub struct ToolCallDelta {
 
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
+#[deprecated(
+    note = "Deprecated: streaming types for chat/completions are superseded by /v1/responses streaming events."
+)]
 pub struct ToolCallFunctionDelta {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub name: Option<String>,
@@ -37,6 +46,9 @@ pub struct ToolCallFunctionDelta {
 /// A single streaming choice payload.
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
+#[deprecated(
+    note = "Deprecated: streaming types for chat/completions are superseded by /v1/responses streaming events."
+)]
 pub struct ChatCompletionChunkChoice {
     pub index: i64,
     pub delta: ChatCompletionMessageDelta,
@@ -46,6 +58,9 @@ pub struct ChatCompletionChunkChoice {
 /// The outermost object sent by OpenAI for each SSE chunk.
 #[allow(dead_code)]
 #[derive(Debug, Deserialize)]
+#[deprecated(
+    note = "Deprecated: streaming types for chat/completions are superseded by /v1/responses streaming events."
+)]
 pub struct ChatCompletionChunkResponse {
     pub id: Option<String>,
     pub object: String,

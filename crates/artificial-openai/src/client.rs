@@ -9,7 +9,10 @@ use reqwest::{
 use std::time::Duration;
 
 use crate::{
-    api_v1::{ChatCompletionChunkResponse, ChatCompletionRequest, ChatCompletionResponse},
+    api_v1::{
+        ChatCompletionChunkResponse, ChatCompletionRequest, ChatCompletionResponse,
+        ResponseStreamEvent, ResponsesRequest, ResponsesResponse,
+    },
     error::OpenAiError,
 };
 
@@ -140,4 +143,118 @@ impl OpenAiClient {
             }
         }
     }
+
+    /// Perform a non-streaming Responses API call.
+    pub async fn response(
+        &self,
+        request: ResponsesRequest,
+    ) -> Result<ResponsesResponse, OpenAiError> {
+        // Build headers once.
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+        );
+
+        let url = format!("{}/responses", self.base);
+        let resp = self
+            .http
+            .post(url)
+            .headers(headers)
+            .json(&request)
+            .send()
+            .await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let body = resp.text().await.unwrap_or_default();
+            return Err(OpenAiError::Api { status, body });
+        }
+
+        let bytes = resp.bytes().await?;
+        let parsed: ResponsesResponse = serde_json::from_slice(&bytes)?;
+        Ok(parsed)
+    }
+
+    /// Perform a streaming Responses API call (reasoning-capable models).
+    pub fn response_stream(
+        &self,
+        mut request: ResponsesRequest,
+    ) -> impl Stream<Item = Result<ResponseStreamEvent, OpenAiError>> + '_ {
+        use reqwest::header::{ACCEPT, HeaderValue};
+
+        // enforce streaming flag
+        request.stream = Some(true);
+
+        // headers (incl. SSE accept)
+        let mut headers = HeaderMap::new();
+        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+        );
+        headers.insert(ACCEPT, HeaderValue::from_static("text/event-stream"));
+
+        let url = format!("{}/responses", self.base);
+
+        try_stream! {
+            let resp = self.http.post(url).headers(headers).json(&request).send().await?;
+
+            if !resp.status().is_success() {
+                let status = resp.status();
+                let body = resp.text().await.unwrap_or_default();
+                return Err(OpenAiError::Api { status, body })?;
+            }
+
+            let mut bytes_stream = resp.bytes_stream();
+            let mut buf: Vec<u8> = Vec::new();
+
+            while let Some(chunk) = bytes_stream.next().await {
+                let chunk = chunk?;
+                buf.extend_from_slice(&chunk);
+
+                // Split on blank lines (support both \n\n and \r\n\r\n)
+                while let Some(frame_len) = find_double_newline(&buf) {
+                    let frame: Vec<u8> = buf.drain(..frame_len).collect();
+                    let frame_str = std::str::from_utf8(&frame)?;
+
+                    // Parse SSE lines
+                    let mut _event_name: Option<&str> = None;
+                    let mut data_lines: Vec<&str> = Vec::new();
+                    for line in frame_str.lines() {
+                        if let Some(rest) = line.strip_prefix("event:") {
+                            _event_name = Some(rest.trim());
+                        } else if let Some(rest) = line.strip_prefix("data:") {
+                            data_lines.push(rest.trim());
+                        }
+                    }
+
+                    if data_lines.is_empty() {
+                        continue;
+                    }
+
+                    let data_json = data_lines.join("\n");
+
+                    let ev: ResponseStreamEvent = serde_json::from_str(&data_json)?;
+                    let done = matches!(ev, ResponseStreamEvent::Completed { .. } | ResponseStreamEvent::Error { .. });
+                    yield ev;
+                    if done { return; }
+                }
+            }
+        }
+
+        // moved helper to module scope
+    }
+}
+
+// Helper to find an SSE frame separator supporting \n\n and \r\n\r\n.
+fn find_double_newline(buf: &[u8]) -> Option<usize> {
+    if let Some(i) = buf.windows(2).position(|w| w == b"\n\n") {
+        return Some(i + 2);
+    }
+    if let Some(i) = buf.windows(4).position(|w| w == b"\r\n\r\n") {
+        return Some(i + 4);
+    }
+    None
 }

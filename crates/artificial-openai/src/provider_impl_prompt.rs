@@ -2,43 +2,26 @@ use std::{any::Any, future::Future, pin::Pin, sync::Arc};
 
 use artificial_core::{
     error::{ArtificialError, Result},
-    generic::{GenericChatCompletionResponse, GenericUsageReport, ResponseContent},
+    generic::{GenericChatCompletionResponse, GenericMessage, GenericUsageReport, ResponseContent},
     provider::PromptExecutionProvider,
     template::{IntoPrompt, PromptTemplate},
 };
 use schemars::{JsonSchema, SchemaGenerator, r#gen::SchemaSettings};
-use serde_json::json;
+use serde_json::{Map, Value};
 
-use crate::{
-    OpenAiAdapter,
-    api_v1::{ChatCompletionMessage, ChatCompletionRequest, FinishReason},
-    error::OpenAiError,
-    model_map::map_model,
-};
+use crate::{OpenAiAdapter, api_v1::ResponsesRequest, error::OpenAiError, model_map::map_model};
 
-/// Implementation of [`ChatCompletionProvider`] for the [`OpenAiAdapter`].
+/// Implementation of `PromptExecutionProvider` that targets the Responses API (/v1/responses).
 ///
-/// The type is only a thin glue layer—almost all heavy lifting is done by the
-/// inner `OpenAiClient` (HTTP) and the adapter’s config (API key, base URL, …).
-///
-/// Responsibilities:
-///
-/// 1. **Convert** the generic prompt into OpenAI‐compatible chat messages.
-/// 2. **Enrich** the request with a JSON Schema derived from `Prompt::Output`.
-/// 3. **Call** the `/v1/chat/completions` endpoint and bubble up transport errors.
-/// 4. **Validate & deserialize** the returned JSON into `Prompt::Output`.
-///
-/// The implementation purposefully rejects any *streaming* or *multi-choice*
-/// responses for now; this keeps the surface minimal and makes error handling
-/// easier to reason about.
+/// Replaces the previous chat/completions prompt pipeline. It:
+/// 1) Converts the generic prompt into Responses-compatible "messages" content blocks.
+/// 2) Injects a JSON schema when `Prompt::Output` is a typed struct.
+/// 3) Calls the non-streaming `/v1/responses` endpoint.
+/// 4) Extracts structured output and deserializes it into `Prompt::Output`.
 impl PromptExecutionProvider for OpenAiAdapter {
-    /// Provider-specific chat message type.
-    type Message = ChatCompletionMessage;
+    /// Accept generic messages directly; we convert them into Responses "messages" JSON.
+    type Message = GenericMessage;
 
-    /// Perform a non-streaming chat completion and deserialize the result.
-    ///
-    /// The method is object-safe by returning a boxed `Future` rather than using
-    /// async/await syntax directly.
     fn prompt_execute<'a, 'p, P>(
         &'a self,
         prompt: P,
@@ -50,61 +33,99 @@ impl PromptExecutionProvider for OpenAiAdapter {
     {
         let client = Arc::clone(&self.client);
 
-        let messages = prompt.into_prompt().into_iter().map(Into::into).collect();
+        // Collect prompt messages and convert to generic messages for shaping.
+        let messages: Vec<GenericMessage> =
+            prompt.into_prompt().into_iter().map(Into::into).collect();
 
         Box::pin(async move {
-            let response_format = derive_response_format::<P::Output>()?;
+            // Build Responses "messages" JSON array (content blocks).
+            let messages_json = to_responses_messages_from_generic(&messages)?;
 
+            // Select model via mapping layer.
             let model = map_model(&P::MODEL).ok_or(ArtificialError::InvalidRequest(format!(
                 "backend does not support selected model: {:?}",
                 P::MODEL
             )))?;
 
-            let request =
-                ChatCompletionRequest::new(model.into(), messages).response_format(response_format);
+            // Inject JSON schema for Prompt::Output, if any.
+            let response_format = derive_response_format::<P::Output>()?;
 
-            let response = client.chat_completion(request).await?;
+            // Assemble the Responses request.
+            let mut req = ResponsesRequest::new(model.to_string());
+            req.messages = Some(messages_json);
+            req.response_format = Some(response_format);
 
-            let usage_report = GenericUsageReport {
-                prompt_tokens: response.usage.prompt_tokens as i64,
-                completion_tokens: response.usage.completion_tokens as i64,
-                total_tokens: response.usage.total_tokens as i64,
+            // Execute non-streaming Responses call.
+            let mut resp = client.response(req).await?;
+
+            // Extract token usage (best-effort).
+            let usage_report = resp
+                .extra
+                .get("usage")
+                .cloned()
+                .or(resp.usage.clone())
+                .and_then(extract_usage);
+
+            // Extract structured output, then deserialize into Prompt::Output.
+            let output_val = resp
+                .output
+                .as_ref()
+                .and_then(extract_first_output_value)
+                .ok_or_else(|| OpenAiError::Format("invalid response: missing output".into()))?;
+
+            let content: P::Output = match maybe_parse_json_string(&output_val) {
+                Some(json_val) => serde_json::from_value(json_val)?,
+                None => serde_json::from_value(output_val.clone())?,
             };
 
-            let Some(first_choice) = response.choices.first() else {
-                return Err(OpenAiError::Format("response has no choices".into()).into());
+            let response = GenericChatCompletionResponse {
+                content: ResponseContent::Finished(content),
+                usage: usage_report,
             };
 
-            match &first_choice.finish_reason {
-                None | Some(FinishReason::Stop) => {
-                    let content =
-                        first_choice
-                            .message
-                            .content
-                            .as_ref()
-                            .ok_or(OpenAiError::Format(
-                                "invalid response: empty content".into(),
-                            ))?;
-                    let content = serde_json::from_str(content.as_str())?;
-                    let response = GenericChatCompletionResponse {
-                        content: ResponseContent::Finished(content),
-                        usage: Some(usage_report),
-                    };
-                    Ok(response)
-                }
-                Some(other) => Err(OpenAiError::Format(format!(
-                    "unhandled finish reason on API: {other:?}"
-                ))
-                .into()),
-            }
+            Ok(response)
         })
     }
 }
 
-/// Produce the `response_format` object expected by OpenAI.
+/// Convert a list of provider-agnostic `GenericMessage`s into the Responses API
+/// "messages" shape:
 ///
-/// * If `T == serde_json::Value` we ask for an *unstructured* JSON blob.
-/// * Otherwise we inline a full JSON Schema generated by `schemars`.
+/// [
+///   {
+///     "role": "system" | "user" | "assistant" | "tool",
+///     "content": [ { "type": "text", "text": "..." } ]
+///   },
+///   ...
+/// ]
+fn to_responses_messages_from_generic(messages: &[GenericMessage]) -> Result<Value> {
+    let mut arr = Vec::with_capacity(messages.len());
+    for m in messages {
+        let role = m.role.to_string(); // already "system" | "user" | "assistant" | "tool"
+
+        // Use plain text blocks for now. If the message has no textual content,
+        // fall back to the empty string (Responses allows empty text blocks).
+        let text = m.content.clone().unwrap_or_default();
+
+        let content_blocks = vec![json_obj(&[
+            ("type", Value::String("text".into())),
+            ("text", Value::String(text)),
+        ])];
+
+        let msg_obj = json_obj(&[
+            ("role", Value::String(role)),
+            ("content", Value::Array(content_blocks)),
+        ]);
+
+        arr.push(msg_obj);
+    }
+    Ok(Value::Array(arr))
+}
+
+/// Derive the `response_format` object expected by OpenAI Responses API.
+///
+/// - If `T == serde_json::Value`, request an unstructured JSON object.
+/// - Otherwise inline a full JSON Schema generated by `schemars`.
 fn derive_response_format<T>() -> Result<serde_json::Value>
 where
     T: JsonSchema + Any,
@@ -114,7 +135,7 @@ where
 
     // Fast-path: caller wants raw JSON.
     if requested_type.eq(&json_value_type) {
-        return Ok(json!({ "type": "json_object" }));
+        return Ok(serde_json::json!({ "type": "json_object" }));
     }
 
     // Generate inline schema (no $ref) for strict validation.
@@ -138,7 +159,7 @@ where
             "json schema has no title".into(),
         ))?;
 
-    Ok(json!({
+    Ok(serde_json::json!({
         "type": "json_schema",
         "json_schema": {
             "strict": true,
@@ -146,4 +167,94 @@ where
             "schema": schema_json,
         }
     }))
+}
+
+/// Try to decode a JSON string embedded inside `output_val`.
+/// If `output_val` is an object/array that already represents the result,
+/// return `None` so the caller can deserialize it directly.
+fn maybe_parse_json_string(output_val: &Value) -> Option<Value> {
+    // If it's a string, try to parse it as JSON.
+    if let Some(s) = output_val.as_str() {
+        if let Ok(v) = serde_json::from_str::<Value>(s) {
+            return Some(v);
+        }
+    }
+
+    // If the value is an object that looks like a text wrapper, try "text".
+    if let Some(obj) = output_val.as_object() {
+        if let Some(text) = obj.get("text").and_then(|v| v.as_str()) {
+            if let Ok(v) = serde_json::from_str::<Value>(text) {
+                return Some(v);
+            }
+        }
+    }
+
+    None
+}
+
+/// Extract a representative output value from `ResponsesResponse.output`.
+/// Heuristics:
+/// - If it's an array, find the first object with "text" or just take the first element.
+/// - If it's an object, return it as-is.
+/// - Otherwise, return the value directly.
+fn extract_first_output_value(output: &Value) -> Option<&Value> {
+    match output {
+        Value::Array(items) => {
+            // Prefer blocks with "text" (typical "output_text" blocks).
+            for it in items {
+                if let Some(obj) = it.as_object() {
+                    if obj.get("text").is_some() {
+                        return Some(it);
+                    }
+                }
+            }
+            // Fallback: first array element.
+            items.get(0)
+        }
+        _ => Some(output),
+    }
+}
+
+/// Best-effort extraction of token usage accounting from a flexible `usage` object.
+fn extract_usage(usage: Value) -> Option<GenericUsageReport> {
+    match usage {
+        Value::Object(obj) => extract_usage_from_obj(&obj),
+        _ => None,
+    }
+}
+
+fn extract_usage_from_obj(obj: &Map<String, Value>) -> Option<GenericUsageReport> {
+    // Try Responses-style keys first, then chat-style fallback.
+    let input = obj
+        .get("input_tokens")
+        .and_then(Value::as_i64)
+        .or_else(|| obj.get("prompt_tokens").and_then(Value::as_i64));
+    let output = obj
+        .get("output_tokens")
+        .and_then(Value::as_i64)
+        .or_else(|| obj.get("completion_tokens").and_then(Value::as_i64));
+    let total = obj
+        .get("total_tokens")
+        .and_then(Value::as_i64)
+        .or_else(|| match (input, output) {
+            (Some(i), Some(o)) => Some(i + o),
+            _ => None,
+        });
+
+    match (input, output, total) {
+        (Some(i), Some(o), Some(t)) => Some(GenericUsageReport {
+            prompt_tokens: i,
+            completion_tokens: o,
+            total_tokens: t,
+        }),
+        _ => None,
+    }
+}
+
+fn json_obj(entries: &[(&str, Value)]) -> Value {
+    let mut map = Map::new();
+    for (k, v) in entries {
+        map.insert((*k).to_string(), v.clone());
+    }
+    Value::Object(map)
 }

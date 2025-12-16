@@ -1,7 +1,6 @@
 use artificial::generic::ResponseContent;
 use artificial::openai::OpenAiAdapterBuilder;
 use artificial::{
-    ArtificialClient,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
     provider::{ChatCompleteParameters, ChatCompletionProvider as _},
@@ -26,8 +25,6 @@ use artificial::{
 async fn main() -> anyhow::Result<()> {
     let backend = OpenAiAdapterBuilder::new_from_env().build()?;
 
-    let client = ArtificialClient::new(backend);
-
     let messages = vec![
         GenericMessage::new(
             "You are a concise, witty assistant.".into(),
@@ -41,7 +38,7 @@ async fn main() -> anyhow::Result<()> {
 
     let params = ChatCompleteParameters::new(messages, Model::OpenAi(OpenAiModel::Gpt4oMini));
 
-    let response = client.chat_complete(params).await?;
+    let response = backend.chat_complete(params).await?;
     let ResponseContent::Finished(content) = response.content else {
         panic!("expected finished");
     };

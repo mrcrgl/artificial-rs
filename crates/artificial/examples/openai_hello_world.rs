@@ -1,8 +1,8 @@
+use artificial::ArtificialClient;
 use artificial::openai::OpenAiAdapterBuilder;
 use artificial::prompt::chain::PromptChain;
 use artificial::types::fragments::StaticFragment;
 use artificial::{
-    ArtificialClient,
     generic::{GenericMessage, GenericRole},
     model::{Model, OpenAiModel},
     provider::PromptExecutionProvider as _,

@@ -12,6 +12,9 @@ use crate::model_map::map_model;
 use super::common;
 use super::tools::ToolCall;
 
+#[deprecated(
+    note = "Deprecated: chat/completions is superseded by /v1/responses. Use ResponsesRequest instead."
+)]
 #[derive(Debug, Serialize, Clone)]
 pub struct ChatCompletionRequest {
     pub model: String,
@@ -203,6 +206,9 @@ pub enum ContentType {
     Text,
 }
 
+#[deprecated(
+    note = "Deprecated: chat/completions message is superseded by Responses API message format (content blocks)."
+)]
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ChatCompletionMessage {
     pub role: MessageRole,
@@ -212,6 +218,9 @@ pub struct ChatCompletionMessage {
     pub tool_call_id: Option<String>,
 }
 
+#[deprecated(
+    note = "Deprecated: use Responses API output types instead of ChatCompletionMessageForResponse."
+)]
 #[derive(Debug, Deserialize, Clone)]
 pub struct ChatCompletionMessageForResponse {
     pub role: MessageRole,
@@ -242,6 +251,9 @@ impl From<ChatCompletionMessageForResponse> for GenericMessage {
 }
 
 #[allow(dead_code)]
+#[deprecated(
+    note = "Deprecated: chat/completions choice structure is superseded by Responses API."
+)]
 #[derive(Debug, Deserialize)]
 pub struct ChatCompletionChoice {
     pub index: i64,
@@ -251,6 +263,9 @@ pub struct ChatCompletionChoice {
 }
 
 #[allow(dead_code)]
+#[deprecated(
+    note = "Deprecated: chat/completions is superseded by /v1/responses. Use ResponsesResponse instead."
+)]
 #[derive(Debug, Deserialize)]
 pub struct ChatCompletionResponse {
     pub id: Option<String>,
@@ -262,6 +277,9 @@ pub struct ChatCompletionResponse {
     pub system_fingerprint: Option<String>,
 }
 
+#[deprecated(
+    note = "Deprecated: chat/completions finish reasons are superseded by Responses API streaming events."
+)]
 #[derive(Debug, Deserialize, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum FinishReason {
@@ -272,6 +290,7 @@ pub enum FinishReason {
 }
 
 #[allow(non_camel_case_types, dead_code)]
+#[deprecated(note = "Deprecated: chat/completions finish details are superseded by Responses API.")]
 #[derive(Debug, Deserialize)]
 pub struct FinishDetails {
     pub r#type: FinishReason,
