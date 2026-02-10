@@ -9,10 +9,7 @@ use reqwest::{
 use std::time::Duration;
 
 use crate::{
-    api_v1::{
-        ChatCompletionChunkResponse, ChatCompletionRequest, ChatCompletionResponse,
-        ResponseStreamEvent, ResponsesRequest, ResponsesResponse,
-    },
+    api_v1::{ResponseStreamEvent, ResponsesRequest, ResponsesResponse},
     error::OpenAiError,
 };
 
@@ -57,93 +54,6 @@ impl OpenAiClient {
         }
     }
 
-    /// Perform a **non-streaming** chat completion.
-    pub async fn chat_completion(
-        &self,
-        request: ChatCompletionRequest,
-    ) -> Result<ChatCompletionResponse, OpenAiError> {
-        // Build headers once.
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
-        );
-
-        let url = format!("{}/chat/completions", self.base);
-        let resp = self
-            .http
-            .post(url)
-            .headers(headers)
-            .json(&request)
-            .send()
-            .await?;
-
-        if !resp.status().is_success() {
-            let status = resp.status();
-            let body = resp.text().await.unwrap_or_default();
-            return Err(OpenAiError::Api { status, body });
-        }
-
-        let bytes = resp.bytes().await?;
-        let parsed: ChatCompletionResponse = serde_json::from_slice(&bytes)?;
-        Ok(parsed)
-    }
-
-    /// Perform a **streaming** chat completion.
-    pub fn chat_completion_stream(
-        &self,
-        mut request: ChatCompletionRequest,
-    ) -> impl Stream<Item = Result<ChatCompletionChunkResponse, OpenAiError>> + '_ {
-        use reqwest::header::{ACCEPT, HeaderValue};
-
-        // 1) enforce streaming flag
-        request.stream = Some(true);
-
-        // 2) headers (incl. SSE accept)
-        let mut headers = HeaderMap::new();
-        headers.insert(CONTENT_TYPE, HeaderValue::from_static("application/json"));
-        headers.insert(
-            AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
-        );
-        headers.insert(ACCEPT, HeaderValue::from_static("text/event-stream"));
-
-        let url = format!("{}/chat/completions", self.base);
-
-        // 3) async stream wrapper
-        try_stream! {
-            let resp = self.http.post(url).headers(headers).json(&request).send().await?;
-
-            if !resp.status().is_success() {
-                let status = resp.status();
-                let body = resp.text().await.unwrap_or_default();
-                return  Err(OpenAiError::Api { status, body })?;
-            }
-
-            let mut bytes_stream = resp.bytes_stream();
-            let mut buf = Vec::new();
-
-            while let Some(chunk) = bytes_stream.next().await {
-                let chunk = chunk?;
-                buf.extend_from_slice(&chunk);
-
-                while let Some(pos) = buf.windows(2).position(|w| w == b"\n\n") {
-                    let frame: Vec<u8> = buf.drain(..pos + 2).collect();
-                    let frame_str = std::str::from_utf8(&frame)?;
-
-                    if let Some(data) = frame_str.strip_prefix("data: ") {
-                        let data = data.trim();
-                        if data == "[DONE]" { return; }
-
-                        let parsed: ChatCompletionChunkResponse = serde_json::from_str(data)?;
-                        yield parsed;
-                    }
-                }
-            }
-        }
-    }
-
     /// Perform a non-streaming Responses API call.
     pub async fn response(
         &self,
@@ -158,6 +68,18 @@ impl OpenAiClient {
         );
 
         let url = format!("{}/responses", self.base);
+
+        // Optionally log the outgoing request (debug)
+        if std::env::var("ARTIFICIAL_DEBUG")
+            .ok()
+            .filter(|v| !v.is_empty())
+            .is_some()
+        {
+            if let Ok(pretty) = serde_json::to_string_pretty(&request) {
+                eprintln!("[artificial-openai] /v1/responses request:\n{pretty}");
+            }
+        }
+
         let resp = self
             .http
             .post(url)
@@ -199,6 +121,13 @@ impl OpenAiClient {
         let url = format!("{}/responses", self.base);
 
         try_stream! {
+            // Optionally log the outgoing request (debug)
+            if std::env::var("ARTIFICIAL_DEBUG").ok().filter(|v| !v.is_empty()).is_some() {
+                if let Ok(pretty) = serde_json::to_string_pretty(&request) {
+                    eprintln!("[artificial-openai] /v1/responses request (stream):\n{pretty}");
+                }
+            }
+
             let resp = self.http.post(url).headers(headers).json(&request).send().await?;
 
             if !resp.status().is_success() {

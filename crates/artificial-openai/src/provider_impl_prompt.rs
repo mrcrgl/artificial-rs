@@ -52,7 +52,7 @@ impl PromptExecutionProvider for OpenAiAdapter {
 
             // Assemble the Responses request.
             let mut req = ResponsesRequest::new(model.to_string());
-            req.messages = Some(messages_json);
+            req.input = Some(messages_json);
             req.response_format = Some(response_format);
 
             // Execute non-streaming Responses call.
@@ -108,7 +108,7 @@ fn to_responses_messages_from_generic(messages: &[GenericMessage]) -> Result<Val
         let text = m.content.clone().unwrap_or_default();
 
         let content_blocks = vec![json_obj(&[
-            ("type", Value::String("text".into())),
+            ("type", Value::String("input_text".into())),
             ("text", Value::String(text)),
         ])];
 

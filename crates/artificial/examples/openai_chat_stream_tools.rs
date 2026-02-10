@@ -1,8 +1,8 @@
-//! # Streaming Chat Completion with Tool Calls
+//! # Responses API Streaming with Tool Calls
 //!
-//! This example demonstrates how to consume streaming events (text deltas and
-//! tool-call intents) and perform a tool round-trip mid-conversation using
-//! `StreamingEventsProvider`.
+//! This example demonstrates how to consume Responses API streaming events
+//! (text deltas and tool-call arguments) and perform a tool round-trip
+//! mid-conversation using `StreamingEventsProvider` (backed by /v1/responses).
 //!
 //! Usage:
 //!   export OPENAI_API_KEY=sk-…

@@ -1,132 +1,11 @@
-use artificial_core::error::ArtificialError;
-use artificial_core::generic::{GenericFunctionSpec, GenericMessage, GenericRole};
-use artificial_core::provider::ChatCompleteParameters;
+use artificial_core::generic::{GenericMessage, GenericRole};
 use serde::de::{self, Visitor};
 use serde::{Deserialize, Deserializer, Serialize};
-
 use std::fmt;
 
-use crate::impl_builder_methods;
-use crate::model_map::map_model;
-
-use super::common;
 use super::tools::ToolCall;
 
-#[deprecated(
-    note = "Deprecated: chat/completions is superseded by /v1/responses. Use ResponsesRequest instead."
-)]
-#[derive(Debug, Serialize, Clone)]
-pub struct ChatCompletionRequest {
-    pub model: String,
-    pub messages: Vec<ChatCompletionMessage>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tools: Option<Vec<ToolSpec>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub temperature: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub top_p: Option<f64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub n: Option<i64>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub response_format: Option<serde_json::Value>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub stream: Option<bool>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_choice: Option<ToolChoice>,
-}
-
-impl ChatCompletionRequest {
-    pub fn new(model: String, messages: Vec<ChatCompletionMessage>) -> Self {
-        Self {
-            model,
-            messages,
-            temperature: None,
-            top_p: None,
-            n: None,
-            response_format: None,
-            stream: None,
-            tools: None,
-            tool_choice: None,
-        }
-    }
-}
-
-impl_builder_methods!(
-    ChatCompletionRequest,
-    response_format: serde_json::Value
-);
-
-impl<M> TryFrom<ChatCompleteParameters<M>> for ChatCompletionRequest
-where
-    M: Into<ChatCompletionMessage>,
-{
-    type Error = ArtificialError;
-
-    fn try_from(value: ChatCompleteParameters<M>) -> Result<Self, Self::Error> {
-        Ok(Self {
-            model: map_model(&value.model)
-                .ok_or(ArtificialError::InvalidRequest(format!(
-                    "backend does not support selected model: {:?}",
-                    value.model
-                )))?
-                .into(),
-            messages: value.messages.into_iter().map(Into::into).collect(),
-            tools: value
-                .tools
-                .map(|tools| tools.into_iter().map(Into::into).collect()),
-            temperature: value.temperature,
-            top_p: None,
-            n: None,
-            response_format: value.response_format,
-            stream: None,
-            tool_choice: None,
-        })
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "snake_case")]
-pub struct ToolSpec {
-    pub function: ToolFunctionSpec,
-    pub r#type: ToolType,
-}
-
-impl From<GenericFunctionSpec> for ToolSpec {
-    fn from(value: GenericFunctionSpec) -> Self {
-        ToolSpec {
-            function: ToolFunctionSpec {
-                name: value.name,
-                description: value.description,
-                parameters: value.parameters,
-                strict: Some(true),
-            },
-            r#type: ToolType::Function,
-        }
-    }
-}
-
-#[derive(Debug, Deserialize, Serialize, Clone)]
-#[serde(rename_all = "snake_case")]
-pub struct ToolFunctionSpec {
-    pub name: String,
-    pub description: String,
-    pub parameters: serde_json::Value,
-    pub strict: Option<bool>,
-}
-
-#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolType {
-    Function,
-}
-
-#[derive(Debug, Deserialize, Serialize, Copy, Clone)]
-#[serde(rename_all = "snake_case")]
-pub enum ToolChoice {
-    None,
-    Auto,
-}
-
+/// Minimal role set kept for internal conversion and Responses API shaping.
 #[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
 #[serde(rename_all = "snake_case")]
 pub enum MessageRole {
@@ -137,12 +16,13 @@ pub enum MessageRole {
     Tool,
 }
 
+/// Minimal text content wrapper used by internal message conversions.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Content {
     Text(String),
 }
 
-impl serde::Serialize for Content {
+impl Serialize for Content {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
@@ -199,16 +79,8 @@ impl<'de> Deserialize<'de> for Content {
     }
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Deserialize, Serialize, Clone, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum ContentType {
-    Text,
-}
-
-#[deprecated(
-    note = "Deprecated: chat/completions message is superseded by Responses API message format (content blocks)."
-)]
+/// Provider-specific message shape used only for internal conversion to Responses API
+/// "messages" JSON. Avoids exposing deprecated chat/completions wire types.
 #[derive(Debug, Deserialize, Serialize, Clone)]
 pub struct ChatCompletionMessage {
     pub role: MessageRole,
@@ -216,85 +88,6 @@ pub struct ChatCompletionMessage {
     pub name: Option<String>,
     pub tool_calls: Option<Vec<ToolCall>>,
     pub tool_call_id: Option<String>,
-}
-
-#[deprecated(
-    note = "Deprecated: use Responses API output types instead of ChatCompletionMessageForResponse."
-)]
-#[derive(Debug, Deserialize, Clone)]
-pub struct ChatCompletionMessageForResponse {
-    pub role: MessageRole,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub reasoning_content: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_calls: Option<Vec<ToolCall>>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub tool_call_id: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub name: Option<String>,
-}
-
-impl From<ChatCompletionMessageForResponse> for GenericMessage {
-    fn from(val: ChatCompletionMessageForResponse) -> Self {
-        GenericMessage {
-            content: val.content,
-            role: val.role.into(),
-            tool_calls: val
-                .tool_calls
-                .map(|calls| calls.into_iter().map(Into::into).collect()),
-            name: val.name,
-            tool_call_id: val.tool_call_id,
-        }
-    }
-}
-
-#[allow(dead_code)]
-#[deprecated(
-    note = "Deprecated: chat/completions choice structure is superseded by Responses API."
-)]
-#[derive(Debug, Deserialize)]
-pub struct ChatCompletionChoice {
-    pub index: i64,
-    pub message: ChatCompletionMessageForResponse,
-    pub finish_reason: Option<FinishReason>,
-    pub finish_details: Option<FinishDetails>,
-}
-
-#[allow(dead_code)]
-#[deprecated(
-    note = "Deprecated: chat/completions is superseded by /v1/responses. Use ResponsesResponse instead."
-)]
-#[derive(Debug, Deserialize)]
-pub struct ChatCompletionResponse {
-    pub id: Option<String>,
-    pub object: String,
-    pub created: i64,
-    pub model: String,
-    pub choices: Vec<ChatCompletionChoice>,
-    pub usage: common::Usage,
-    pub system_fingerprint: Option<String>,
-}
-
-#[deprecated(
-    note = "Deprecated: chat/completions finish reasons are superseded by Responses API streaming events."
-)]
-#[derive(Debug, Deserialize, PartialEq, Eq)]
-#[serde(rename_all = "snake_case")]
-pub enum FinishReason {
-    Stop,
-    Length,
-    ContentFilter,
-    ToolCalls,
-}
-
-#[allow(non_camel_case_types, dead_code)]
-#[deprecated(note = "Deprecated: chat/completions finish details are superseded by Responses API.")]
-#[derive(Debug, Deserialize)]
-pub struct FinishDetails {
-    pub r#type: FinishReason,
-    pub stop: String,
 }
 
 impl From<GenericRole> for MessageRole {

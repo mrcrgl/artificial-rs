@@ -4,6 +4,5 @@ mod common;
 mod responses;
 mod tools;
 
-pub use chat_completion::*;
-pub use chat_completion_stream::*;
+pub(crate) use chat_completion::*;
 pub use responses::*;

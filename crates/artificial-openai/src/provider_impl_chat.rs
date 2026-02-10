@@ -1,74 +1,25 @@
-use std::sync::Arc;
+#![allow(dead_code)]
+//! Legacy Chat Completions shim
+//!
+//! This crate has migrated fully to the OpenAI Responses API (/v1/responses).
+//! The actual provider implementations now live in `provider_impl_responses.rs`:
+//! - `ChatCompletionProvider` (non-streaming text)
+//! - `StreamingChatProvider` (text deltas)
+//! - `StreamingEventsProvider` (structured streaming: text + tool-calls)
+//!
+//! This module remains as a tiny compatibility shim so that downstream code or
+//! grep targets referring to `provider_impl_chat` can discover the new setup.
+//! It contains a compile-time assertion ensuring the adapter implements the
+//! intended traits, without pulling in any of the legacy chat/completions types.
 
-use artificial_core::{
-    generic::{GenericChatCompletionResponse, GenericUsageReport, ResponseContent},
-    provider::{ChatCompleteParameters, ChatCompletionProvider},
-};
-
-use crate::{
-    OpenAiAdapter,
-    api_v1::{ChatCompletionMessage, FinishReason},
-    error::OpenAiError,
-};
-
-impl ChatCompletionProvider for OpenAiAdapter {
-    type Message = ChatCompletionMessage;
-
-    fn chat_complete<'p, M>(
-        &self,
-        params: ChatCompleteParameters<M>,
-    ) -> std::pin::Pin<
-        Box<
-            dyn Future<
-                    Output = artificial_core::error::Result<
-                        artificial_core::generic::GenericChatCompletionResponse<
-                            artificial_core::generic::GenericMessage,
-                        >,
-                    >,
-                > + Send
-                + 'p,
-        >,
-    >
-    where
-        M: Into<Self::Message> + Send + Sync + 'p,
-    {
-        let client = Arc::clone(&self.client);
-
-        Box::pin(async move {
-            let request = params.try_into()?;
-
-            let mut response = client.chat_completion(request).await?;
-
-            let usage_report = GenericUsageReport {
-                prompt_tokens: response.usage.prompt_tokens as i64,
-                completion_tokens: response.usage.completion_tokens as i64,
-                total_tokens: response.usage.total_tokens as i64,
-            };
-
-            let Some(first_choice) = response.choices.pop() else {
-                return Err(OpenAiError::Format("response has no choices".into()).into());
-            };
-
-            match &first_choice.finish_reason {
-                Some(FinishReason::ToolCalls) => {
-                    let response = GenericChatCompletionResponse {
-                        content: ResponseContent::ToolCalls(first_choice.message.into()),
-                        usage: Some(usage_report),
-                    };
-                    Ok(response)
-                }
-                None | Some(FinishReason::Stop) => {
-                    let response = GenericChatCompletionResponse {
-                        content: ResponseContent::Finished(first_choice.message.into()),
-                        usage: Some(usage_report),
-                    };
-                    Ok(response)
-                }
-                Some(other) => Err(OpenAiError::Format(format!(
-                    "unhandled finish reason on API: {other:?}"
-                ))
-                .into()),
-            }
-        })
-    }
+/// Compile-time assertion that the adapter implements the Responses-based traits.
+///
+/// This function is never called; it only enforces trait bounds during compilation.
+pub(crate) fn __assert_adapter_traits(adapter: &crate::OpenAiAdapter)
+where
+    crate::OpenAiAdapter: artificial_core::provider::ChatCompletionProvider
+        + artificial_core::provider::StreamingChatProvider
+        + artificial_core::generic::StreamingEventsProvider,
+{
+    let _ = adapter;
 }

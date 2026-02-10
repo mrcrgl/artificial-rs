@@ -36,7 +36,9 @@ pub struct ResponsesRequest {
     ///
     /// Keep both as `Value` to allow the caller to supply the exact shape they need.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub input: Option<Vec<ResponseInput>>,
+    pub input: Option<Value>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub messages: Option<Value>,
 
     /// Reasoning controls for models that support it.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -59,6 +61,17 @@ pub struct ResponsesRequest {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub response_format: Option<Value>,
 
+    /// Tool definitions for function calling (flattened function schema).
+    /// Example:
+    ///   { "type":"function", "name":"current_weather", "description":"...", "parameters":{...}, "strict":true }
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tools: Option<Vec<ResponseTool>>,
+
+    /// Tool choice policy: either a literal (e.g. "auto" or "none") or a function selector:
+    ///   { "type":"function", "name":"current_weather" }
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub tool_choice: Option<ResponseToolChoice>,
+
     /// Arbitrary fields the caller may want to pass through while we iterate on the schema.
     /// This offers forward compatibility without breaking deserialization.
     #[serde(flatten)]
@@ -70,22 +83,18 @@ impl ResponsesRequest {
         Self {
             model: model.into(),
             input: None,
+            messages: None,
             reasoning: None,
             max_output_tokens: None,
             temperature: None,
             top_p: None,
             stream: None,
             response_format: None,
+            tools: None,
+            tool_choice: None,
             extra: Default::default(),
         }
     }
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone)]
-#[serde(tag = "type")]
-pub enum ResponseInput {
-    #[serde(rename = "message")]
-    Message,
 }
 
 /// Reasoning control block. The exact options are subject to change upstream, but
@@ -104,6 +113,49 @@ pub enum ReasoningEffort {
     High,
 }
 
+/// Tool specification for the Responses API.
+/// Flattened function schema with internal tag "type":"function".
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ResponseTool {
+    Function {
+        /// The function name the model can call.
+        name: String,
+        /// Optional human-readable description.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        description: Option<String>,
+        /// JSON Schema describing the expected arguments.
+        parameters: Value,
+        /// Enable strict JSON Schema validation when supported.
+        #[serde(skip_serializing_if = "Option::is_none")]
+        strict: Option<bool>,
+    },
+}
+
+/// Controls how the model may choose tools during Responses API calls.
+/// Accepts either:
+/// - a literal: "auto" | "none"
+/// - an object: { "type":"function", "name": "<function_name>" }
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(untagged)]
+pub enum ResponseToolChoice {
+    Literal(ResponseToolChoiceLiteral),
+    Function(ResponseToolChoiceFunction),
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(rename_all = "snake_case")]
+pub enum ResponseToolChoiceLiteral {
+    Auto,
+    None,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone)]
+#[serde(tag = "type", rename_all = "snake_case")]
+pub enum ResponseToolChoiceFunction {
+    Function { name: String },
+}
+
 /// Non-streaming Responses API object.
 ///
 /// The Responses API returns structured output that can vary based on the
@@ -111,10 +163,14 @@ pub enum ReasoningEffort {
 /// `output` is typed as `serde_json::Value`.
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct ResponsesResponse {
-    pub id: String,
-    pub object: String,
-    pub created: i64,
-    pub model: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub object: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub created: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub model: Option<String>,
 
     /// The structured output from the model (shape is model/feature dependent).
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -204,6 +260,34 @@ pub enum ResponseStreamEvent {
     #[serde(rename = "response.refusal.done")]
     RefusalDone {
         text: String,
+        #[serde(flatten)]
+        extra: std::collections::BTreeMap<String, Value>,
+    },
+
+    /// Streaming function-call arguments delta (JSON string fragment).
+    #[serde(rename = "response.function_call_arguments.delta")]
+    FunctionCallArgumentsDelta {
+        #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        delta: String,
+        #[serde(flatten)]
+        extra: std::collections::BTreeMap<String, Value>,
+    },
+
+    /// Finalized function-call arguments for a single call.
+    #[serde(rename = "response.function_call_arguments.done")]
+    FunctionCallArgumentsDone {
+        #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        id: Option<String>,
+        #[serde(default)]
+        #[serde(skip_serializing_if = "Option::is_none")]
+        name: Option<String>,
+        arguments: String,
         #[serde(flatten)]
         extra: std::collections::BTreeMap<String, Value>,
     },

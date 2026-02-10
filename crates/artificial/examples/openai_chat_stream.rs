@@ -1,7 +1,7 @@
 //! # Streaming Chat Completion – Real-time Example
 //!
 //! This example shows how to consume incremental text **deltas** from the
-//! OpenAI back-end via [`StreamingChatProvider::chat_complete_stream`].
+//! OpenAI Responses API via [`StreamingChatProvider::chat_complete_stream`] (backed by `/v1/responses`).
 //!
 //! Whereas `PromptExecutionProvider` collects the full reply before returning,
 //! streaming lets you render partial output as soon as it arrives—perfect for

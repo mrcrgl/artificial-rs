@@ -6,16 +6,16 @@ use artificial::{
     provider::{ChatCompleteParameters, ChatCompletionProvider as _},
 };
 
-/// # Chat Completion – Direct `chat_complete` Example
+/// # Chat Completion (Responses API) – Direct `chat_complete` Example
 ///
 /// This example bypasses the higher-level [`PromptExecutionProvider`]
-/// abstraction and calls [`ChatCompletionProvider::chat_complete`] directly.
+/// abstraction and calls [`ChatCompletionProvider::chat_complete`] directly (backed by OpenAI Responses API `/v1/responses`).
 /// That means:
 ///
 /// 1. **You** assemble the full list of chat messages.
 /// 2. **You** pick the model.
 /// 3. The backend returns a [`GenericChatCompletionResponse`] that contains a
-///    single assistant message (plus token usage statistics).
+///    single assistant message (plus token usage statistics), powered by the Responses API.
 ///
 /// ```bash
 /// export OPENAI_API_KEY=sk-…      # mandatory
