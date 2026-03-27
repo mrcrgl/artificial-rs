@@ -8,8 +8,13 @@ use reqwest::{
 };
 use std::time::Duration;
 
+use artificial_core::provider::{TranscriptionRequest, TranscriptionResult};
+
 use crate::{
-    api_v1::{ChatCompletionChunkResponse, ChatCompletionRequest, ChatCompletionResponse},
+    api_v1::{
+        AudioTranscriptionResponse, ChatCompletionChunkResponse, ChatCompletionRequest,
+        ChatCompletionResponse,
+    },
     error::{OpenAiError, OpenAiRateLimitHeaders},
 };
 
@@ -400,6 +405,76 @@ impl OpenAiClient {
             }
         }
     }
+
+    /// Perform an audio transcription via OpenAI `/audio/transcriptions`.
+    pub async fn audio_transcription(
+        &self,
+        request: TranscriptionRequest,
+    ) -> Result<TranscriptionResult, OpenAiError> {
+        if request.audio.is_empty() {
+            return Err(OpenAiError::Format(
+                "audio payload must not be empty".into(),
+            ));
+        }
+        if request.mime_type.trim().is_empty() {
+            return Err(OpenAiError::Format("mime_type must not be empty".into()));
+        }
+
+        use reqwest::multipart::{Form, Part};
+        let mut headers = HeaderMap::new();
+        headers.insert(
+            AUTHORIZATION,
+            HeaderValue::from_str(&format!("Bearer {}", self.api_key)).unwrap(),
+        );
+
+        let filename = request.filename.unwrap_or_else(|| "audio.wav".to_string());
+        let file_part = Part::bytes(request.audio)
+            .file_name(filename)
+            .mime_str(&request.mime_type)
+            .map_err(|e| OpenAiError::Format(format!("invalid mime type: {e}")))?;
+
+        let mut form = Form::new().part("file", file_part).text(
+            "model",
+            request
+                .model
+                .unwrap_or_else(|| "gpt-4o-mini-transcribe".to_string()),
+        );
+
+        if let Some(language) = request.language {
+            form = form.text("language", language);
+        }
+        if let Some(prompt) = request.prompt {
+            form = form.text("prompt", prompt);
+        }
+
+        let url = format!("{}/audio/transcriptions", self.base);
+        let mut req = self.http.post(url).headers(headers).multipart(form);
+        if let Some(timeout) = self.timeouts.request_timeout {
+            req = req.timeout(timeout);
+        }
+        let resp = req.send().await?;
+
+        if !resp.status().is_success() {
+            let status = resp.status();
+            let headers_map = resp.headers().clone();
+            let body = resp.text().await.unwrap_or_default();
+            if status == reqwest::StatusCode::TOO_MANY_REQUESTS {
+                let (retry_after, reset_at, headers) = extract_rate_limit_info(&headers_map);
+                return Err(OpenAiError::RateLimited {
+                    status,
+                    body,
+                    retry_after,
+                    reset_at,
+                    headers,
+                });
+            }
+            return Err(OpenAiError::Api { status, body });
+        }
+
+        let bytes = resp.bytes().await?;
+        let parsed: AudioTranscriptionResponse = serde_json::from_slice(&bytes)?;
+        Ok(parsed.into())
+    }
 }
 
 #[cfg(test)]
@@ -513,5 +588,52 @@ mod tests {
             .expect("stream should produce first chunk")
             .expect("first chunk should parse");
         assert_eq!(first.choices.len(), 1);
+    }
+
+    #[tokio::test]
+    async fn audio_transcription_parses_text_response() {
+        let base_url = run_single_response_server(
+            Duration::from_millis(0),
+            r#"{"text":"hello world","language":"en","duration":1.25}"#.to_string(),
+            "application/json",
+        );
+
+        let client = OpenAiClient::with_http_and_timeouts(
+            "test-key",
+            reqwest::Client::new(),
+            Some(base_url),
+            HttpTimeoutConfig::default(),
+        )
+        .with_retry_policy(RetryPolicy {
+            max_retries: 0,
+            ..RetryPolicy::default()
+        });
+
+        let result = client
+            .audio_transcription(
+                TranscriptionRequest::new(vec![1, 2, 3], "audio/wav")
+                    .with_filename("clip.wav")
+                    .with_model("gpt-4o-mini-transcribe"),
+            )
+            .await
+            .expect("transcription should succeed");
+
+        assert_eq!(result.text, "hello world");
+        assert_eq!(result.language.as_deref(), Some("en"));
+        assert_eq!(result.duration_seconds, Some(1.25));
+    }
+
+    #[tokio::test]
+    async fn audio_transcription_rejects_empty_audio() {
+        let client = OpenAiClient::new("test-key");
+        let err = client
+            .audio_transcription(TranscriptionRequest::new(Vec::new(), "audio/wav"))
+            .await
+            .expect_err("empty audio should fail validation");
+
+        match err {
+            OpenAiError::Format(msg) => assert!(msg.contains("audio payload")),
+            other => panic!("unexpected error: {other:?}"),
+        }
     }
 }

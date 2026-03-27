@@ -24,10 +24,11 @@ need a lean starting point for your own experiments—this repo is for you.
 1. [Crate layout](#crate-layout)
 2. [Installation](#installation)
 3. [Quick start](#quick-start)
-4. [Library tour](#library-tour)
-5. [Design goals](#design-goals)
-6. [FAQ](#faq)
-7. [License](#license)
+4. [Audio transcription](#audio-transcription)
+5. [Library tour](#library-tour)
+6. [Design goals](#design-goals)
+7. [FAQ](#faq)
+8. [License](#license)
 
 ---
 
@@ -132,6 +133,27 @@ cargo run -p artificial --example openai_hello_world
 
 The program sends a request with an **inline JSON-Schema** and prints the
 deserialised reply.
+
+---
+
+## Audio transcription
+
+`artificial-core` now exposes a provider-agnostic transcription capability via:
+
+- `TranscriptionRequest`
+- `TranscriptionResult`
+- `TranscriptionProvider`
+
+The OpenAI adapter implements this against `/audio/transcriptions`.
+
+Working example:
+
+```bash
+OPENAI_API_KEY=... cargo run -p artificial --example openai_audio_transcription -- ./sample.wav
+```
+
+Example source:
+[`crates/artificial/examples/openai_audio_transcription.rs`](crates/artificial/examples/openai_audio_transcription.rs)
 
 ---
 
