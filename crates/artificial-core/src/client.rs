@@ -36,7 +36,7 @@ use crate::{
     generic::{GenericChatCompletionResponse, StreamingEventsProvider},
     provider::{
         ChatCompleteParameters, ChatCompletionProvider, PromptExecutionProvider,
-        StreamingChatProvider,
+        StreamingChatProvider, TranscriptionProvider, TranscriptionRequest, TranscriptionResult,
     },
     template::{IntoPrompt, PromptTemplate},
 };
@@ -135,5 +135,14 @@ impl<B: StreamingEventsProvider> StreamingEventsProvider for ArtificialClient<B>
         M: Into<Self::Message> + Clone + Send + Sync + 's,
     {
         self.backend.chat_complete_events_stream(params)
+    }
+}
+
+impl<B: TranscriptionProvider> TranscriptionProvider for ArtificialClient<B> {
+    fn transcribe<'s>(
+        &'s self,
+        request: TranscriptionRequest,
+    ) -> Pin<Box<dyn Future<Output = Result<TranscriptionResult>> + Send + 's>> {
+        self.backend.transcribe(request)
     }
 }
