@@ -2,7 +2,7 @@ use std::{env, sync::Arc};
 
 use artificial_core::error::{ArtificialError, Result};
 
-use crate::client::{OpenAiClient, RetryPolicy};
+use crate::client::{HttpTimeoutConfig, OpenAiClient, RetryPolicy};
 
 /// Thin wrapper that wires the HTTP client [`OpenAiClient`] into a value that
 /// implements [`artificial_core::backend::Backend`].
@@ -41,6 +41,7 @@ impl OpenAiAdapter {}
 pub struct OpenAiAdapterBuilder {
     pub(crate) api_key: Option<String>,
     pub(crate) retry: Option<RetryPolicy>,
+    pub(crate) timeouts: Option<HttpTimeoutConfig>,
 }
 
 impl OpenAiAdapterBuilder {
@@ -59,12 +60,19 @@ impl OpenAiAdapterBuilder {
         Self {
             api_key: env::var("OPENAI_API_KEY").ok(),
             retry: None,
+            timeouts: None,
         }
     }
 
     /// Set a retry policy for OpenAI HTTP calls.
     pub fn with_retry_policy(mut self, retry: RetryPolicy) -> Self {
         self.retry = Some(retry);
+        self
+    }
+
+    /// Set HTTP timeout configuration for upstream requests.
+    pub fn with_http_timeouts(mut self, timeouts: HttpTimeoutConfig) -> Self {
+        self.timeouts = Some(timeouts);
         self
     }
 
@@ -78,11 +86,14 @@ impl OpenAiAdapterBuilder {
             "missing env variable: `OPENAI_API_KEY`".into(),
         ))?;
 
-        let client = if let Some(retry) = self.retry {
-            OpenAiClient::new(api_key).with_retry_policy(retry)
+        let mut client = if let Some(timeouts) = self.timeouts {
+            OpenAiClient::new_with_timeouts(api_key, timeouts)
         } else {
             OpenAiClient::new(api_key)
         };
+        if let Some(retry) = self.retry {
+            client = client.with_retry_policy(retry);
+        }
 
         Ok(OpenAiAdapter {
             client: Arc::new(client),
