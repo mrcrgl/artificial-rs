@@ -19,7 +19,13 @@ set -euo pipefail
 #   ./publish.sh           # live run
 #   DRY_RUN=1 ./publish.sh # "cargo publish --dry-run" for all crates
 #
+# Optional env:
+#   EXPECT_TAG=v0.6.0      # require this git tag to exist
+#
 ###############################################################################
+
+ROOT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
+cd "$ROOT_DIR"
 
 CRATES=(
   "crates/artificial-core"
@@ -28,6 +34,25 @@ CRATES=(
   "crates/artificial-openai"
   "crates/artificial"
 )
+
+CURRENT_BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+if [[ "$CURRENT_BRANCH" != "master" && "$CURRENT_BRANCH" != "main" ]]; then
+  echo "❌ Refusing to publish from branch '$CURRENT_BRANCH'. Use 'master' or 'main'."
+  exit 1
+fi
+
+if [[ -n "${EXPECT_TAG:-}" ]]; then
+  if ! git rev-parse --verify --quiet "refs/tags/$EXPECT_TAG" >/dev/null; then
+    echo "❌ Expected tag '$EXPECT_TAG' does not exist."
+    exit 1
+  fi
+fi
+
+# Ensure repository is clean before publishing any crate.
+if [[ -n "$(git status --porcelain)" ]]; then
+  echo "❌ Working tree is not clean – aborting."
+  exit 1
+fi
 
 # Allow a dry-run mode: DRY_RUN=1 ./publish.sh
 PUBLISH_CMD="cargo publish --locked"
@@ -42,12 +67,8 @@ for crate in "${CRATES[@]}"; do
   echo "─────────────────────────────────────────────────────────────"
 
   pushd "$crate" > /dev/null
-  # Ensure version tag exists and working tree is clean.
-  echo "→ Checking git status…"
-  if [[ -n $(git status --porcelain) ]]; then
-    echo "⚠️  Working directory not clean in $crate – aborting."
-    exit 1
-  fi
+  echo "→ Packaging check…"
+  cargo package --locked
 
   # Perform the (dry-)publish
   $PUBLISH_CMD
