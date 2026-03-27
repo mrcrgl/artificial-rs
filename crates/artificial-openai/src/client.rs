@@ -126,6 +126,28 @@ impl RetryPolicy {
     }
 }
 
+#[derive(Clone, Debug)]
+pub struct HttpTimeoutConfig {
+    /// TCP/TLS connection timeout.
+    pub connect_timeout: Option<Duration>,
+    /// Total timeout for non-streaming requests.
+    pub request_timeout: Option<Duration>,
+    /// Total timeout for streaming requests.
+    ///
+    /// `None` keeps streams open indefinitely (default).
+    pub stream_timeout: Option<Duration>,
+}
+
+impl Default for HttpTimeoutConfig {
+    fn default() -> Self {
+        Self {
+            connect_timeout: Some(Duration::from_secs(10)),
+            request_timeout: Some(Duration::from_secs(30)),
+            stream_timeout: None,
+        }
+    }
+}
+
 const DEFAULT_BASE_URL: &str = "https://api.openai.com/v1";
 
 /// Minimal HTTP client for OpenAI’s *chat/completions* endpoint.
@@ -140,32 +162,50 @@ pub struct OpenAiClient {
     http: HttpClient,
     base: String,
     retry: RetryPolicy,
+    timeouts: HttpTimeoutConfig,
 }
 
 impl OpenAiClient {
-    /// Convenience constructor building a default `reqwest` client:
-    /// 30 s timeout, HTTP/2 prior knowledge, Rustls TLS.
+    /// Convenience constructor building a default `reqwest` client.
     pub fn new(api_key: impl Into<String>) -> Self {
-        let http = HttpClient::builder()
-            .timeout(Duration::from_secs(30))
-            .build()
-            .expect("building reqwest client");
+        Self::new_with_timeouts(api_key, HttpTimeoutConfig::default())
+    }
 
-        Self::with_http(api_key, http, None)
+    /// Convenience constructor with explicit timeout configuration.
+    pub fn new_with_timeouts(api_key: impl Into<String>, timeouts: HttpTimeoutConfig) -> Self {
+        let mut builder = HttpClient::builder();
+        if let Some(connect_timeout) = timeouts.connect_timeout {
+            builder = builder.connect_timeout(connect_timeout);
+        }
+        let http = builder.build().expect("building reqwest client");
+
+        Self::with_http_and_timeouts(api_key, http, None, timeouts)
     }
 
     /// Build with a custom `reqwest::Client` in case the caller needs proxy
     /// settings, custom TLS, etc.
+    #[allow(dead_code)]
     pub fn with_http(
         api_key: impl Into<String>,
         http: HttpClient,
         base_url: Option<String>,
+    ) -> Self {
+        Self::with_http_and_timeouts(api_key, http, base_url, HttpTimeoutConfig::default())
+    }
+
+    /// Build with a custom `reqwest::Client` and timeout configuration.
+    pub fn with_http_and_timeouts(
+        api_key: impl Into<String>,
+        http: HttpClient,
+        base_url: Option<String>,
+        timeouts: HttpTimeoutConfig,
     ) -> Self {
         Self {
             api_key: api_key.into(),
             http,
             base: base_url.unwrap_or_else(|| DEFAULT_BASE_URL.to_owned()),
             retry: RetryPolicy::default(),
+            timeouts,
         }
     }
 
@@ -181,16 +221,19 @@ impl OpenAiClient {
         url: String,
         headers: HeaderMap,
         request: &ChatCompletionRequest,
+        request_timeout: Option<Duration>,
     ) -> Result<reqwest::Response, OpenAiError> {
         let mut attempt: u32 = 0;
         loop {
-            let res = self
+            let mut req = self
                 .http
                 .post(url.clone())
                 .headers(headers.clone())
-                .json(request)
-                .send()
-                .await;
+                .json(request);
+            if let Some(timeout) = request_timeout {
+                req = req.timeout(timeout);
+            }
+            let res = req.send().await;
 
             match res {
                 Ok(resp) => {
@@ -299,7 +342,9 @@ impl OpenAiClient {
         );
 
         let url = format!("{}/chat/completions", self.base);
-        let resp = self.post_json_with_retry(url, headers, &request).await?;
+        let resp = self
+            .post_json_with_retry(url, headers, &request, self.timeouts.request_timeout)
+            .await?;
 
         let bytes = resp.bytes().await?;
         let parsed: ChatCompletionResponse = serde_json::from_slice(&bytes)?;
@@ -329,7 +374,9 @@ impl OpenAiClient {
 
         // 3) async stream wrapper
         try_stream! {
-            let resp = self.post_json_with_retry(url, headers, &request).await?;
+            let resp = self
+                .post_json_with_retry(url, headers, &request, self.timeouts.stream_timeout)
+                .await?;
 
             let mut bytes_stream = resp.bytes_stream();
             let mut buf = Vec::new();
@@ -352,5 +399,119 @@ impl OpenAiClient {
                 }
             }
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::{
+        io::{Read, Write},
+        net::TcpListener,
+        thread,
+    };
+
+    use crate::api_v1::{ChatCompletionMessage, Content, MessageRole};
+
+    fn run_single_response_server(delay: Duration, body: String, content_type: &str) -> String {
+        let listener = TcpListener::bind("127.0.0.1:0").expect("bind tcp listener");
+        let addr = listener.local_addr().expect("listener addr");
+        let response = format!(
+            "HTTP/1.1 200 OK\r\ncontent-type: {content_type}\r\ncontent-length: {}\r\nconnection: close\r\n\r\n{body}",
+            body.len()
+        );
+
+        thread::spawn(move || {
+            let (mut stream, _) = listener.accept().expect("accept connection");
+            let _ = stream.set_read_timeout(Some(Duration::from_secs(2)));
+            let mut req_buf = [0_u8; 8192];
+            let _ = stream.read(&mut req_buf);
+            thread::sleep(delay);
+            stream
+                .write_all(response.as_bytes())
+                .expect("write response");
+            let _ = stream.flush();
+        });
+
+        format!("http://{addr}")
+    }
+
+    fn sample_request() -> ChatCompletionRequest {
+        ChatCompletionRequest::new(
+            "gpt-4o-mini".to_string(),
+            vec![ChatCompletionMessage {
+                role: MessageRole::User,
+                content: Some(Content::Text("hello".to_string())),
+                name: None,
+                tool_calls: None,
+                tool_call_id: None,
+            }],
+        )
+    }
+
+    #[tokio::test]
+    async fn non_streaming_respects_request_timeout() {
+        let base_url = run_single_response_server(
+            Duration::from_millis(200),
+            r#"{"id":"x","object":"chat.completion","created":0,"model":"gpt-4o-mini","choices":[{"index":0,"message":{"role":"assistant","content":"ok"},"finish_reason":"stop","finish_details":null}],"usage":{"prompt_tokens":1,"completion_tokens":1,"total_tokens":2},"system_fingerprint":null}"#.to_string(),
+            "application/json",
+        );
+
+        let client = OpenAiClient::with_http_and_timeouts(
+            "test-key",
+            reqwest::Client::new(),
+            Some(base_url),
+            HttpTimeoutConfig {
+                connect_timeout: Some(Duration::from_secs(1)),
+                request_timeout: Some(Duration::from_millis(50)),
+                stream_timeout: None,
+            },
+        )
+        .with_retry_policy(RetryPolicy {
+            max_retries: 0,
+            ..RetryPolicy::default()
+        });
+
+        let err = client
+            .chat_completion(sample_request())
+            .await
+            .expect_err("non-stream request should timeout");
+        match err {
+            OpenAiError::Http(inner) => assert!(inner.is_timeout()),
+            other => panic!("unexpected error: {other:?}"),
+        }
+    }
+
+    #[tokio::test]
+    async fn streaming_uses_stream_timeout_not_request_timeout() {
+        let sse_body = format!(
+            "data: {}\n\ndata: [DONE]\n\n",
+            r#"{"id":"x","object":"chat.completion.chunk","created":0,"model":"gpt-4o-mini","choices":[{"index":0,"delta":{"content":"ok"},"finish_reason":"stop"}]}"#
+        );
+        let base_url =
+            run_single_response_server(Duration::from_millis(120), sse_body, "text/event-stream");
+
+        let client = OpenAiClient::with_http_and_timeouts(
+            "test-key",
+            reqwest::Client::new(),
+            Some(base_url),
+            HttpTimeoutConfig {
+                connect_timeout: Some(Duration::from_secs(1)),
+                request_timeout: Some(Duration::from_millis(10)),
+                stream_timeout: None,
+            },
+        )
+        .with_retry_policy(RetryPolicy {
+            max_retries: 0,
+            ..RetryPolicy::default()
+        });
+
+        let mut stream = Box::pin(client.chat_completion_stream(sample_request()));
+        let first = stream
+            .next()
+            .await
+            .expect("stream should produce first chunk")
+            .expect("first chunk should parse");
+        assert_eq!(first.choices.len(), 1);
     }
 }

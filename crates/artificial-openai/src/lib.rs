@@ -7,5 +7,5 @@ mod provider_impl_prompt;
 pub use adapter::{OpenAiAdapter, OpenAiAdapterBuilder};
 mod api_v1;
 mod client;
-pub use client::RetryPolicy;
+pub use client::{HttpTimeoutConfig, RetryPolicy};
 pub mod error;

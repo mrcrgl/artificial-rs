@@ -82,9 +82,10 @@ use artificial::{
     model::{Model, OpenAiModel},
     template::{IntoPrompt, PromptTemplate},
 };
-use artificial_openai::OpenAiAdapterBuilder;
+use artificial_openai::{HttpTimeoutConfig, OpenAiAdapterBuilder};
 use schemars::JsonSchema;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 #[derive(Debug, Serialize, Deserialize, JsonSchema)]
 #[serde(deny_unknown_fields)]
@@ -109,7 +110,13 @@ impl PromptTemplate for HelloPrompt {
 
 #[tokio::main]
 async fn main() -> anyhow::Result<()> {
-    let backend  = OpenAiAdapterBuilder::new_from_env().build()?;
+    let backend  = OpenAiAdapterBuilder::new_from_env()
+        .with_http_timeouts(HttpTimeoutConfig {
+            connect_timeout: Some(Duration::from_secs(10)),
+            request_timeout: Some(Duration::from_secs(30)),
+            stream_timeout: None, // keep streaming responses open
+        })
+        .build()?;
     let client   = ArtificialClient::new(backend);
     let response = client.chat_complete(HelloPrompt).await?;
     println!("The droid says: {:?}", response);
