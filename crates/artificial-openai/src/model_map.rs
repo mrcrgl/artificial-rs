@@ -5,6 +5,9 @@ const GPT5_1: &str = "gpt-5.1";
 const GPT5_2: &str = "gpt-5.2";
 const GPT5_NANO: &str = "gpt-5-nano";
 const GPT5_MINI: &str = "gpt-5-mini";
+const GPT4_1: &str = "gpt-4.1";
+const GPT4_1_MINI: &str = "gpt-4.1-mini";
+const GPT4_1_NANO: &str = "gpt-4.1-nano";
 const GPT4_O_MINI: &str = "gpt-4o-mini";
 const GPT4_O: &str = "gpt-4o";
 const O3: &str = "o3";
@@ -31,5 +34,8 @@ pub(crate) fn map_model(model: &Model) -> Option<&'static str> {
         OpenAiModel::Gpt5Mini => Some(GPT5_MINI),
         OpenAiModel::Gpt5_1 => Some(GPT5_1),
         OpenAiModel::Gpt5_2 => Some(GPT5_2),
+        OpenAiModel::Gpt4_1 => Some(GPT4_1),
+        OpenAiModel::Gpt4_1Mini => Some(GPT4_1_MINI),
+        OpenAiModel::Gpt4_1Nano => Some(GPT4_1_NANO),
     }
 }
