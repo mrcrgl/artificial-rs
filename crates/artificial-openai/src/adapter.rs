@@ -23,14 +23,14 @@ pub struct OpenAiAdapter {
 
 impl OpenAiAdapter {}
 
-/// Builder for [`OpenAiAdapter`].
+/// Builder-style configuration for constructing [`OpenAiAdapter`].
 ///
 /// # Typical usage
 ///
 /// ```rust,no_run
-/// use artificial_openai::OpenAiAdapterBuilder;
+/// use artificial_openai::OpenAiAdapterOptions;
 ///
-/// let backend = OpenAiAdapterBuilder::new_from_env()
+/// let backend = OpenAiAdapterOptions::new_from_env()
 ///     .build()
 ///     .expect("OPENAI_API_KEY must be set");
 /// ```
@@ -38,13 +38,13 @@ impl OpenAiAdapter {}
 /// The builder pattern keeps future options (proxy URL, organisation ID, …)
 /// backwards compatible without breaking existing `build()` calls.
 #[derive(Default)]
-pub struct OpenAiAdapterBuilder {
+pub struct OpenAiAdapterOptions {
     pub(crate) api_key: Option<String>,
     pub(crate) retry: Option<RetryPolicy>,
     pub(crate) timeouts: Option<HttpTimeoutConfig>,
 }
 
-impl OpenAiAdapterBuilder {
+impl OpenAiAdapterOptions {
     /// Create an *empty* builder. Remember to supply an API key manually.
     pub fn new() -> Self {
         Self::default()
@@ -62,6 +62,12 @@ impl OpenAiAdapterBuilder {
             retry: None,
             timeouts: None,
         }
+    }
+
+    /// Set API key explicitly.
+    pub fn with_api_key(mut self, api_key: impl Into<String>) -> Self {
+        self.api_key = Some(api_key.into());
+        self
     }
 
     /// Set a retry policy for OpenAI HTTP calls.
@@ -100,3 +106,6 @@ impl OpenAiAdapterBuilder {
         })
     }
 }
+
+/// Backwards-compatible alias kept for existing code.
+pub type OpenAiAdapterBuilder = OpenAiAdapterOptions;
