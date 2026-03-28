@@ -25,6 +25,8 @@
 //!            Model::OpenAi(OpenAiModel::Gpt4oMini));
 //! ```
 
+use std::str::FromStr;
+
 /// Universal identifier for an LLM model.
 ///
 /// * `OpenAi` – Enumerated list of officially supported OpenAI models.
@@ -46,8 +48,22 @@ pub enum OpenAiModel {
     Gpt5,
     Gpt5Nano,
     Gpt5Mini,
+    Gpt5Pro,
     Gpt5_1,
+    Gpt5_1Codex,
+    Gpt5_1CodexMini,
+    Gpt5_1CodexMax,
     Gpt5_2,
+    Gpt5_2Pro,
+    Gpt5_2Codex,
+    Gpt5_3,
+    Gpt5_3Codex,
+    Gpt5_4,
+    Gpt5_4Pro,
+    Gpt5Codex,
+    Gpt4_1,
+    Gpt4_1Mini,
+    Gpt4_1Nano,
     Gpt4o,
     Gpt4oMini,
     O3,
@@ -58,5 +74,148 @@ pub enum OpenAiModel {
 impl From<OpenAiModel> for Model {
     fn from(val: OpenAiModel) -> Self {
         Model::OpenAi(val)
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct ModelParseError(pub String);
+
+impl std::fmt::Display for ModelParseError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "unknown model identifier: {}", self.0)
+    }
+}
+
+impl std::error::Error for ModelParseError {}
+
+impl AsRef<str> for OpenAiModel {
+    fn as_ref(&self) -> &str {
+        match self {
+            OpenAiModel::Gpt5 => "gpt-5",
+            OpenAiModel::Gpt5Nano => "gpt-5-nano",
+            OpenAiModel::Gpt5Mini => "gpt-5-mini",
+            OpenAiModel::Gpt5Pro => "gpt-5-pro",
+            OpenAiModel::Gpt5_1 => "gpt-5.1",
+            OpenAiModel::Gpt5_1Codex => "gpt-5.1-codex",
+            OpenAiModel::Gpt5_1CodexMini => "gpt-5.1-codex-mini",
+            OpenAiModel::Gpt5_1CodexMax => "gpt-5.1-codex-max",
+            OpenAiModel::Gpt5_2 => "gpt-5.2",
+            OpenAiModel::Gpt5_2Pro => "gpt-5.2-pro",
+            OpenAiModel::Gpt5_2Codex => "gpt-5.2-codex",
+            OpenAiModel::Gpt5_3 => "gpt-5.3",
+            OpenAiModel::Gpt5_3Codex => "gpt-5.3-codex",
+            OpenAiModel::Gpt5_4 => "gpt-5.4",
+            OpenAiModel::Gpt5_4Pro => "gpt-5.4-pro",
+            OpenAiModel::Gpt5Codex => "gpt-5-codex",
+            OpenAiModel::Gpt4_1 => "gpt-4.1",
+            OpenAiModel::Gpt4_1Mini => "gpt-4.1-mini",
+            OpenAiModel::Gpt4_1Nano => "gpt-4.1-nano",
+            OpenAiModel::Gpt4o => "gpt-4o",
+            OpenAiModel::Gpt4oMini => "gpt-4o-mini",
+            OpenAiModel::O3 => "o3",
+            OpenAiModel::O3Mini => "o3-mini",
+            OpenAiModel::O4Mini => "o4-mini",
+        }
+    }
+}
+
+impl FromStr for OpenAiModel {
+    type Err = ModelParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        match s {
+            "gpt-5" => Ok(OpenAiModel::Gpt5),
+            "gpt-5-nano" => Ok(OpenAiModel::Gpt5Nano),
+            "gpt-5-mini" => Ok(OpenAiModel::Gpt5Mini),
+            "gpt-5-pro" => Ok(OpenAiModel::Gpt5Pro),
+            "gpt-5.1" => Ok(OpenAiModel::Gpt5_1),
+            "gpt-5.1-codex" => Ok(OpenAiModel::Gpt5_1Codex),
+            "gpt-5.1-codex-mini" => Ok(OpenAiModel::Gpt5_1CodexMini),
+            "gpt-5.1-codex-max" => Ok(OpenAiModel::Gpt5_1CodexMax),
+            "gpt-5.2" => Ok(OpenAiModel::Gpt5_2),
+            "gpt-5.2-pro" => Ok(OpenAiModel::Gpt5_2Pro),
+            "gpt-5.2-codex" => Ok(OpenAiModel::Gpt5_2Codex),
+            "gpt-5.3" => Ok(OpenAiModel::Gpt5_3),
+            "gpt-5.3-codex" => Ok(OpenAiModel::Gpt5_3Codex),
+            "gpt-5.4" => Ok(OpenAiModel::Gpt5_4),
+            "gpt-5.4-pro" => Ok(OpenAiModel::Gpt5_4Pro),
+            "gpt-5-codex" => Ok(OpenAiModel::Gpt5Codex),
+            "gpt-4.1" => Ok(OpenAiModel::Gpt4_1),
+            "gpt-4.1-mini" => Ok(OpenAiModel::Gpt4_1Mini),
+            "gpt-4.1-nano" => Ok(OpenAiModel::Gpt4_1Nano),
+            "gpt-4o" => Ok(OpenAiModel::Gpt4o),
+            "gpt-4o-mini" => Ok(OpenAiModel::Gpt4oMini),
+            "o3" => Ok(OpenAiModel::O3),
+            "o3-mini" => Ok(OpenAiModel::O3Mini),
+            "o4-mini" => Ok(OpenAiModel::O4Mini),
+            _ => Err(ModelParseError(s.to_string())),
+        }
+    }
+}
+
+impl AsRef<str> for Model {
+    fn as_ref(&self) -> &str {
+        match self {
+            Model::OpenAi(model) => model.as_ref(),
+            Model::Custom(custom) => custom,
+        }
+    }
+}
+
+impl FromStr for Model {
+    type Err = ModelParseError;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(Model::OpenAi(OpenAiModel::from_str(s)?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{Model, OpenAiModel};
+    use std::str::FromStr;
+
+    #[test]
+    fn openai_model_from_str_roundtrips() {
+        let models = [
+            "gpt-5",
+            "gpt-5-nano",
+            "gpt-5-mini",
+            "gpt-5-pro",
+            "gpt-5.1",
+            "gpt-5.1-codex",
+            "gpt-5.1-codex-mini",
+            "gpt-5.1-codex-max",
+            "gpt-5.2",
+            "gpt-5.2-pro",
+            "gpt-5.2-codex",
+            "gpt-5.3",
+            "gpt-5.3-codex",
+            "gpt-5.4",
+            "gpt-5.4-pro",
+            "gpt-5-codex",
+            "gpt-4.1",
+            "gpt-4.1-mini",
+            "gpt-4.1-nano",
+            "gpt-4o",
+            "gpt-4o-mini",
+            "o3",
+            "o3-mini",
+            "o4-mini",
+        ];
+
+        for model in models {
+            let parsed = OpenAiModel::from_str(model).expect("model should parse");
+            assert_eq!(parsed.as_ref(), model);
+        }
+    }
+
+    #[test]
+    fn model_as_ref_covers_openai_and_custom() {
+        let openai = Model::OpenAi(OpenAiModel::Gpt5Mini);
+        assert_eq!(openai.as_ref(), "gpt-5-mini");
+
+        let custom = Model::Custom("provider:custom-1");
+        assert_eq!(custom.as_ref(), "provider:custom-1");
     }
 }
